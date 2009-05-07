@@ -5,6 +5,8 @@
 
 require("foreign")
 
+NUMMONTHS=54
+
 hhreg <- read.xport("/media/Restricted/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
 # A death is coded in the household registry data as a 3 in LIVNG1-LIVNG54. Any 
 # other value indicates that the individual was alive.
@@ -28,7 +30,7 @@ livngs[is.na(livngs)] <- 1 # Code NA as unknown
 status <- rep(NA, nrow(hhreg))
 statusage <- rep(NA, nrow(hhreg))
 statustime <- rep(NA, nrow(hhreg))
-for (month in 1:54) {
+for (month in 1:NUMMONTHS) {
     age <- ages[,month]
     # First code the new deaths
     index <- livngs[,month]
@@ -63,4 +65,9 @@ for (n in 1:length(bin.breakpoints)-1) {
     nmembers[n] <- length(status[agegroup.members.indices])
 }
 
-save(bin.breakpoints, ndeaths, nmembers, status, statusage, statustime, file="chitwan_deaths.Rdata")
+# Divide the hazards by NUMMONTHS/12 to convert them to be yearly hazards of 
+# death.
+hazard.death <- (ndeaths/nmembers) / (NUMMONTHS/12)
+deathhazard <- cbind(matrix(bin.breakpoints[-1]), matrix(hazard.death))
+
+save(deathhazard, ndeaths, nmembers, status, statusage, statustime, file="chitwan_deaths.Rdata")
