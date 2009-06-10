@@ -2,8 +2,6 @@
 # Makes plots of the quantity of fuelwood collected (using t3 data).
 ###############################################################################
 
-library("foreign")
-
 pdf(file="firewood_t3.pdf", paper="letter")
 par(mfrow=c(2,1))
 
