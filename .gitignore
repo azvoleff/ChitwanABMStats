@@ -3,3 +3,5 @@
 *.Rdata
 *.pdf
 *.swp
+*.csv
+*.txt
