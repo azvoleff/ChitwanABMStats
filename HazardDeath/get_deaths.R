@@ -5,15 +5,16 @@
 
 require("foreign")
 
-NUMMONTHS=54
 
 hhreg <- read.xport("/media/Restricted/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
 # A death is coded in the household registry data as a 3 in LIVNG1-LIVNG54. Any 
-# other value indicates that the individual was alive.
-# LIVNG1 - LIVNG54 are indexed as columns 117-170 in the dataframe.
-# AGE1 - AGE54 are indexed as columns 7-60 in the dataframe.
-livngs <- hhreg[117:170]
-ages <- hhreg[7:60]
+# other value indicates that the individual was alive. Ages are given in AGE1 - 
+# AGE54. When doing the regex, LIVNGLT and AGELT (from the census data) need to 
+# be excluded.
+livngs <- hhreg[grep('^LIVNG[0-9]*$', names(hhreg))]
+ages <- hhreg[grep('^AGE[0-9]*$', names(hhreg))]
+
+NUMMONTHS=54
 
 # Here I will recode the data so any point where an individual was known alive 
 # is a 2, the period in which they died is a 3, and all other times (including 
@@ -27,6 +28,10 @@ livngs[is.na(livngs)] <- 1 # Code NA as unknown
 # were last known to be alive. Do this by creating a vector of length 
 # equivalent to the number of individuals in the dataset, and by then iterating 
 # over the months, and updating it with each known alive or known dead event.  
+lastalive <- na.omit(apply(livngs, 1, function(row) match(2, row)))
+died <- na.omit(apply(livngs, 1, function(row) match(3, row)))
+
+# BEGIN OLD METHOD:
 status <- rep(NA, nrow(hhreg))
 statusage <- rep(NA, nrow(hhreg))
 statustime <- rep(NA, nrow(hhreg))
