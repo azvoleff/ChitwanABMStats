@@ -17,7 +17,7 @@ deaths <- Surv(statustime, status)
 plot(survfit(deaths), xlab="Time interval", ylab="Survivorship",
     main="Chitwan survival")
 
-model.1 <- survfit(deaths~statusage)
+model <- survfit(deaths~statusage)
 plot(model, ylab="Survivorship", xlab="Age (years)")
 
 hist(statusage[status==1], breaks=20, xlab="Age at death (years)",
