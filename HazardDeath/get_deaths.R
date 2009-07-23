@@ -10,7 +10,7 @@ hhreg <- read.xport("/media/Restricted/Data/ICPSR_0538_Restricted/da04538-0010_R
 # A death is coded in the household registry data as a 3 in LIVNG1-LIVNG54. Any 
 # other value indicates that the individual was alive. Ages are given in AGE1 - 
 # AGE54. When doing the regex, LIVNGLT and AGELT (from the census data) need to 
-# be excluded.
+# be excluded, so the $ is required to end the string.
 livngs <- hhreg[grep('^LIVNG[0-9]*$', names(hhreg))]
 ages <- hhreg[grep('^AGE[0-9]*$', names(hhreg))]
 
