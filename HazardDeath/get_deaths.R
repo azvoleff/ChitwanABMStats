@@ -5,7 +5,6 @@
 
 require("foreign")
 
-
 hhreg <- read.xport("/media/Restricted/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
 # A death is coded in the household registry data as a 3 in LIVNG1-LIVNG54. Any 
 # other value indicates that the individual was alive. Ages are given in AGE1 - 
