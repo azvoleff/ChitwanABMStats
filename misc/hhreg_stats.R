@@ -5,6 +5,21 @@
 library(Hmisc) # contains label function
 load("/media/Restricted/Data/CVFS_R_format/hhreg.Rdata")
 
+# Function to write out probabilities of events in the format required by the 
+# ChitwanABM model.
+make.txthazard <- function(probdata, binlims, filename) {
+    txthazard <- "[{" 
+    for (rownum in 1:nrow(probdata)) {
+        txthazard <- paste(txthazard, "(", binlims[rownum], ", ",
+                binlims[rownum+1], "):", round(probdata$prob[rownum], digits=4),
+                sep="")
+        if (rownum<nrow(probdata)) txthazard <- paste(txthazard, ", ", sep="")
+    }
+    txthazard <- paste(txthazard, "} | validate_hazard(", binlims[1], ", ",
+            binlims[length(binlims)], ")]", sep="")
+    return(txthazard)
+}
+
 columns <- grep('^(livng|age|preg|marit|place|spous|hhid)[0-9]*$', names(hhreg))
 
 hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
@@ -15,6 +30,15 @@ hhreg.reshaped <- reshape(hhreg[c(1, 3, 4, columns)], direction="long",
         varying=names(hhreg[columns]), idvar="respid", timevar="time", sep="")
 
 events <- hhreg.reshaped
+
+# Add a new column "has spouse" that is 0 if a person is not married, 1 if a 
+# person is married. Do they by recoding the MARIT data. Recode unmarried, 
+# widowed, divorced and separated (3, 4, 5 and 6) as 0, and married living with 
+# spouse and married not living with spouse (1 and 2) to 1.
+events <- cbind(events, hasspouse=matrix(NA,nrow(events),1))
+events$hasspouse <- events$marit
+events$hasspouse[events$hasspouse==2] <- 1
+events$hasspouse[events$hasspouse!=1] <- 0
 
 # Here I recode the livng data so any point where an individual was known alive 
 # is a 2, the period in which they died is a 3, and all other times (including 
@@ -40,21 +64,35 @@ events <- events[-which(events$age<0),]
 # Drop the one individual where ethnicity is missing
 events <- events[-which(is.na(events$ethnic)),]
 
+# Drop rows where hasspouse has NAs
+events <- events[-which(is.na(events$hasspouse)),]
+
+###############################################################################
+# Process deaths.
+###############################################################################
+
 # Add a column to store the bin index for each record (determined by the
 # person's age).
 events <- cbind(events, deathbin=matrix(NA,nrow(events),1))
 
-bin.deathlims <- c(0, 3, 6, 12, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+deathlims <- c(0, 3, 6, 12, 20, 30, 40, 50, 60, 70, 80, 90, 199)
 # First count number of person months in each bin
-for (binnum in 1:length(bin.deathlims)) {
-    # Works only because it reassigns binindices as it goes. Not the most 
-    # efficient way of doing things.
-    events[events$age>bin.deathlims[binnum],]$deathbin <- binnum
+for (limindex in 1:length(deathlims)-1) {
+    events[events$age>=deathlims[limindex] &
+            events$age<deathlims[limindex+1],]$deathbin <- deathlims[limindex]
 }
 
 # Then count the number of death events per bin
 deaths <- aggregate(events$livng==3, by=list(gender=events$gender,
-                deathbin=events$deathbin), sum)
+        deathbin=events$deathbin), sum)
+deathspsnmnths <- aggregate(events$livng==2, by=list(gender=events$gender,
+        deathbin=events$deathbin), sum)
+deathprob <- data.frame(gender=deaths$gender, bin=deaths$deathbin,
+        prob=(deaths$x/deathspsnmnths$x)*12)
+
+###############################################################################
+# Process births.events$gender=="female" & !is.na(events$preg) &
+###############################################################################
 
 # Now process preg. Note that hhreg data is only available for pregnancy/births 
 # Note that every live birth is a 3 and all other pregnancy statuses (1, 2, 4, 
@@ -66,10 +104,16 @@ deaths <- aggregate(events$livng==3, by=list(gender=events$gender,
 # Preg status is only recorded in the hhreg data for women between the ages of 
 # 18 and 45
 events <- cbind(events, pregbin=matrix(NA,nrow(events),1))
-bin.preglims <- c(0, 14, 16, 18, 20, 25, 30, 35, 40, 45)
-for (binnum in 1:length(bin.preglims)) {
-    events[events$age>bin.preglims[binnum],]$pregbin <- binnum
+preglims <- c(0, 14, 15, 16, 18, 20, 23, 26, 30, 35, 40, 45, 199)
+for (limindex in 1:length(preglims)-1) {
+    events[events$age>=preglims[limindex] &
+            events$age<preglims[limindex+1],]$pregbin <- preglims[limindex]
 }
-# Then count the number of death events per bin
-births <- with(events[events$gender=="female" & !is.na(events$preg),],
-        aggregate(preg==3, by=list(pregbin=pregbin), sum))
+# Then count the number of death events per bin, only considering married women 
+# (there are only 2 births to unmarried women)
+fecund <- events[events$gender=="female" & !is.na(events$preg),]
+births <- with(fecund[fecund$hasspouse==1,], aggregate(preg==3,
+        by=list(pregbin=pregbin), sum))
+birthpsnmnths <- aggregate(fecund$gender=="female",
+        by=list(pregbin=fecund$pregbin), sum)
+birthprob <- data.frame(bin=births$pregbin, prob=(births$x/birthpsnmnths$x)*12)
