@@ -7,13 +7,13 @@ load("/media/Restricted/Data/CVFS_R_format/hhreg.Rdata")
 
 # Function to write out probabilities of events in the format required by the 
 # ChitwanABM model.
-make.txthazard <- function(probdata, binlims, filename) {
+make.txthazard <- function(probs, binlims) {
     txthazard <- "[{" 
-    for (rownum in 1:nrow(probdata)) {
+    for (rownum in 1:length(probs)) {
         txthazard <- paste(txthazard, "(", binlims[rownum], ", ",
-                binlims[rownum+1], "):", round(probdata$prob[rownum], digits=4),
+                binlims[rownum+1], "):", round(probs[rownum], digits=4),
                 sep="")
-        if (rownum<nrow(probdata)) txthazard <- paste(txthazard, ", ", sep="")
+        if (rownum<length(probs)) txthazard <- paste(txthazard, ", ", sep="")
     }
     txthazard <- paste(txthazard, "} | validate_hazard(", binlims[1], ", ",
             binlims[length(binlims)], ")]", sep="")
@@ -77,7 +77,7 @@ events <- cbind(events, deathbin=matrix(NA,nrow(events),1))
 
 deathlims <- c(0, 3, 6, 12, 20, 30, 40, 50, 60, 70, 80, 90, 199)
 # First count number of person months in each bin
-for (limindex in 1:length(deathlims)-1) {
+for (limindex in 1:(length(deathlims)-1)) {
     events[events$age>=deathlims[limindex] &
             events$age<deathlims[limindex+1],]$deathbin <- deathlims[limindex]
 }
@@ -89,6 +89,9 @@ deathspsnmnths <- aggregate(events$livng==2, by=list(gender=events$gender,
         deathbin=events$deathbin), sum)
 deathprob <- data.frame(gender=deaths$gender, bin=deaths$deathbin,
         prob=(deaths$x/deathspsnmnths$x)*12)
+
+# Calculate the number of deaths per month
+monthly.deaths <- with(events[events$livng==3,], aggregate(livng==3, by=list(time=time), sum))
 
 ###############################################################################
 # Process births.events$gender=="female" & !is.na(events$preg) &
@@ -105,7 +108,7 @@ deathprob <- data.frame(gender=deaths$gender, bin=deaths$deathbin,
 # 18 and 45
 events <- cbind(events, pregbin=matrix(NA,nrow(events),1))
 preglims <- c(0, 14, 15, 16, 18, 20, 23, 26, 30, 35, 40, 45, 199)
-for (limindex in 1:length(preglims)-1) {
+for (limindex in 1:(length(preglims)-1)) {
     events[events$age>=preglims[limindex] &
             events$age<preglims[limindex+1],]$pregbin <- preglims[limindex]
 }
@@ -117,3 +120,14 @@ births <- with(fecund[fecund$hasspouse==1,], aggregate(preg==3,
 birthpsnmnths <- aggregate(fecund$gender=="female",
         by=list(pregbin=fecund$pregbin), sum)
 birthprob <- data.frame(bin=births$pregbin, prob=(births$x/birthpsnmnths$x)*12)
+
+# Calculate the number of births per month
+monthly.births <- with(events[events$preg==3,], aggregate(preg==3, by=list(time=time), sum))
+
+# TODO: Also calculate the proportion of female/male births
+
+###############################################################################
+# Now write out probabilities to text
+###############################################################################
+
+make.txthazard(birthprob)
