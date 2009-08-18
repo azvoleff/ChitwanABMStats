@@ -25,15 +25,15 @@ make.txthazard <- function(probs, binlims, param.name) {
 # Before the reshape, add a new set of columns (53 columns) coding whether a 
 # new marriage occurred prior to the survey in the month. Do this by using the 
 # marit columns.
-# 	First: recode 1 and 2 (married living with/without spouse) as 1, meaning 
+# 	First: recode 1 and 2 (married living with/without spouse) as 2, meaning 
 # 	married in that month. Recode 3, 4, and 5 (unmarried, widowed, and 
-# 	divorced) as 2, meaning unmarried. Recode 6 (separated, as 4).
+# 	divorced) as 1, meaning unmarried. Recode 6 (separated, as 4).
 #
 # 	Next, Subtract the marit1-53 columns from the marit2-54 columns. Now, in 
 # 	these new columns:
+# 		1 = got married
 # 		0 = no change in marital status
 # 		-1 = marriage ended
-# 		1 = got married
 # 		Other numbers have to do with separated -> other status. This is 
 # 		ignored for now.
 maritcolumns <- grep('^marit[0-9]*$', names(hhreg))
@@ -41,28 +41,28 @@ maritstatus <- hhreg[maritcolumns]
 maritstatus[maritstatus==-4] <- NA
 maritstatus[maritstatus==-3] <- NA
 maritstatus[maritstatus==-1] <- NA
-# Change maritchg NAs to 100
-events$maritchg[is.na(events$maritchg)] <- 100
-maritstatus[maritstatus==2] <- 1
-maritstatus[maritstatus==3] <- 2
-maritstatus[maritstatus==4] <- 2
-maritstatus[maritstatus==5] <- 2
+maritstatus[maritstatus==1] <- 2
+maritstatus[maritstatus==3] <- 1
+maritstatus[maritstatus==4] <- 1
+maritstatus[maritstatus==5] <- 1
 maritstatus[maritstatus==6] <- 4
 maritstatus.chg <- maritstatus[2:54] - maritstatus[1:53]
 # Add a column for time 1, which is only NAs as marital status is not known 
-# prior to the first month, so no change can be calcualted.
+# prior to the first month, so no change can be calculated.
 maritstatus.chg <- cbind(marit1=matrix(NA, nrow(maritstatus.chg),1), maritstatus.chg)
 # Rename the columns to maritchg so they do not interfere with the 'marit' 
 # column
 names(maritstatus.chg) <- sub('^marit', 'maritchg', names(maritstatus.chg))
+names(maritstatus) <- sub('^marit', 'maritstat', names(maritstatus))
 
 hhreg <- cbind(hhreg, maritstatus.chg)
+hhreg <- cbind(hhreg, maritstatus)
 
 ###############################################################################
 # Now do the reshape.
 ###############################################################################
 # Find the column indices of all columns that are repeated measurements
-columns <- grep('^(livng|age|preg|marit|maritchg|place|spous|hhid)[0-9]*$', names(hhreg))
+columns <- grep('^(livng|age|preg|marit|maritchg|maritstat|place|spous|hhid)[0-9]*$', names(hhreg))
 hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
 
 # Reshape age and livngs. Include columns 1, 3, and 4 as these are respid, 
@@ -116,9 +116,9 @@ events <- events[-which(is.na(events$hasspouse)),]
 ###############################################################################
 # Add a column to store the bin index for each record (determined by the
 # person's age).
-events <- cbind(events, deathbin=matrix(NA,nrow(events),1))
+events <- cbind(events, deathbin=matrix(0,nrow(events),1))
 
-deathlims <- c(0, 3, 6, 12, 20, 30, 40, 50, 60, 70, 80, 90, 199)
+deathlims <- c(0, 3, 6, 12, 20, 40, 60, 80, 199)
 # First count number of person months in each bin
 for (limindex in 1:(length(deathlims)-1)) {
     events[events$age>=deathlims[limindex] &
@@ -148,7 +148,7 @@ monthly.deaths <- with(events[events$livng==3,], aggregate(livng==3, by=list(tim
 
 # Preg status is only recorded in the hhreg data for women between the ages of 
 # 18 and 45
-events <- cbind(events, pregbin=matrix(NA,nrow(events),1))
+events <- cbind(events, pregbin=matrix(0,nrow(events),1))
 preglims <- c(0, 14, 15, 16, 18, 20, 23, 26, 30, 35, 40, 45, 199)
 for (limindex in 1:(length(preglims)-1)) {
     events[events$age>=preglims[limindex] &
@@ -170,15 +170,27 @@ monthly.births <- with(events[events$preg==3,], aggregate(preg==3, by=list(time=
 ###############################################################################
 # Process marriages.
 ###############################################################################
-events <- cbind(events, marrbin=matrix(NA,nrow(events),1))
-marrlims <- c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 199)
+events <- cbind(events, marrbin=matrix(0,nrow(events),1))
+marrlims <- c(0, 10, 14, 18, 22, 30, 40, 60, 199)
 for (limindex in 1:(length(marrlims)-1)) {
     events[events$age>=marrlims[limindex] &
             events$age<marrlims[limindex+1],]$marrbin <- marrlims[limindex]
 }
+
+events$maritchg[is.na(events$maritchg)] <- 0
+marriages <- aggregate(events$maritchg==1, by=list(gender=events$gender,
+                marrbin=events$marrbin), sum)
 # Calculate the number of marriages per month
-monthly.marriages <- with(events[events$maritchg==1,], aggregate(maritchg==1, by=list(time=time), sum))
-monthly.marriages.end <- with(events[events$maritchg==-1,], aggregate(maritchg==-1, by=list(time=time), sum))
+monthly.marriages <- with(events[events$maritchg==1,], aggregate(maritchg==1,
+        by=list(gender=gender, time=time), sum))
+# Calculate the number of marriages that end per month
+monthly.marriages.end <- with(events[events$maritchg==-1,],
+        aggregate(maritchg==-1, by=list(time=time), sum))
+# Remove NAs from maritstat
+events$maritstat[is.na(events$maritstat)] <- 0
+marrpsnmnths <- aggregate(events$maritstat==1, by=list(gender=events$gender,
+        deathbin=events$deathbin), sum)
+marrprob <- data.frame(gender=marriages$gender, bin=marriages$marrbin, prob=(marriages$x/marrpsnmnths$x)*12)
 
 ###############################################################################
 # Now write out probabilities to text
@@ -188,5 +200,7 @@ make.txthazard(deathprob[deathprob$gender=="male",]$prob, deathlims,
         "hazard.death.male")
 make.txthazard(deathprob[deathprob$gender=="female",]$prob, deathlims,
         "hazard.death.female")
-make.txthazard(deathprob[deathprob$gender=="female",]$prob, deathlims,
-        "hazard.marriage")
+make.txthazard(marrprob[marrprob$gender=="male",]$prob, marrlims,
+        "hazard.marriage.male")
+make.txthazard(marrprob[marrprob$gender=="female",]$prob, marrlims,
+        "hazard.marriage.female")
