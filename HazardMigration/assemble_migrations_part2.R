@@ -3,12 +3,13 @@
 # and DS0013 to add additional covariates to the migrations data.
 ###############################################################################
 library("foreign")
+library("Hmisc")
 
 # Load the migration data (stored in a dataframe as person-months)
 load("migrations_raw.Rdata")
 
 # Gather vars from DS0004 (Household Census)
-DS0004 <- read.xport("/media/Restricted/Data/da04538-0004_REST.xpt")
+DS0004 <- sasxport.get("/media/Restricted/Data/ICPSR_0538_Restricted/da04538-0004_REST.xpt")
 hh_vars <- with(DS0004, data.frame(RESPID, HHID, NEIGHID, CENGENDR))
 # Make CENGENDER 1 for female, 0 for male
 hh_vars$CENGENDR <- hh_vars$CENGENDR - 1

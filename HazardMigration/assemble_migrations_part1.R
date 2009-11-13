@@ -4,7 +4,8 @@
 ###############################################################################
 
 library("foreign")
-DS0010 <- read.xport("/media/Restricted/Data/da04538-0010_REST.xpt")
+library("Hmisc")
+DS0010 <- sasxport.get("/media/Restricted/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
 
 # First assemble from DS0010 the migration outcomes for each month, leaving out 
 # any months after a move occurs.
