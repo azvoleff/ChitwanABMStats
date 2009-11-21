@@ -3,10 +3,10 @@
 # to an Rdata file.
 ###############################################################################
 
-library("foreign")
 library("Hmisc")
 #hhreg <- sasxport.get("/media/Restricted/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
-hhreg <- sasxport.get("/media/ENCRYPTDRV/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
+#hhreg <- sasxport.get("/media/ENCRYPTDRV/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
+load("/home/azvoleff/Data/CVFS_HHReg/hhreg126.Rdata")
 
 # First assemble from hhreg the migration outcomes for each month, leaving out 
 # any months after a move occurs.
@@ -17,21 +17,21 @@ hhreg <- sasxport.get("/media/ENCRYPTDRV/Data/ICPSR_0538_Restricted/da04538-0010
 # Add an indicator to hhreg to allow later exclusion of individuals who have 
 # already migrated. This indicator starts out set at 0 (no migration) for all 
 # individuals.
-
 hhreg <- cbind(hhreg, migrated=0)
 
-for (month in 2:54) {
+place.cols <- grep('^place[0-9]*$', names(hhreg))
+for (month in place.cols[-1]) {
     print(month)
     # Check for no-moves, local and long-distance migrations.  No migration is 
     # PLACEn=PLACEn+1. A local move is anything where the neighborhood ID 
     # changed from PLACEn to PLACEn+1, but the neighborhood ID was <= 502.  A 
     # Long distance migration is PLACEn+1 > 502.
     
-    # Column 226 is one column before the PLACE1 column. Pull out the place 
-    # columns, then mask out data with invalid places (PLACE <=0, meaning 
-    # the participant was not yet part of the survey in that month).
-    place_0 <- hhreg[226+month-1]
-    place_1 <- hhreg[226+month]
+    # Pull out the place columns, then mask out data with invalid places (PLACE 
+    # <=0, meaning the participant was not yet part of the survey in that 
+    # month).
+    place_0 <- hhreg[month-1]
+    place_1 <- hhreg[month]
     
     # First pull out the no-moves (coded as 0)
     no_migr <- hhreg[hhreg$migrated==0 & place_0==place_1 & place_0 >= 0 & place_1 >= 0,]
@@ -64,7 +64,7 @@ for (month in 2:54) {
 
     # Add the new records to the migrations dataframe
     new_records <- na.omit(new_records)
-    if (month==2) migrations <- new_records else migrations <- rbind(migrations, new_records)
+    if (month==min(place.cols[-1])) migrations <- new_records else migrations <- rbind(migrations, new_records)
 }
 
 save(migrations, file="migrations_raw.Rdata")
