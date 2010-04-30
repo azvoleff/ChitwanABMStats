@@ -1,0 +1,10 @@
+load("hhsize.mean.Rdata")
+load("numhs.Rdata")
+load("pop.Rdata")
+
+pdf("hhsize_plots.pdf", width=6.5, height=9, paper="letter")
+par(mfrow=c(3,1))
+plot(numhs, xlab="Time", ylab="Num. of households in sample")
+plot(hhsize.mean, xlab="Time", ylab="Mean household size")
+plot(pop, xlab="Time", ylab="Num. of indiv. resident in Chitwan")
+dev.off()
