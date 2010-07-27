@@ -11,12 +11,13 @@
 
 # MONTHS.AWAY gives the number of months a person must be away for a move to be 
 # considered a migration.
-MONTHS.AWAY <- 1
+MONTHS.AWAY <- 18
 
 library("Hmisc")
-#hhreg <- sasxport.get("/media/Restricted/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
-#hhreg <- sasxport.get("/media/ENCRYPTDRV/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
-load("/media/RestData/Data/CVFS_HHReg/hhreg126.Rdata")
+#hhreg <- sasxport.get("/media/Simple_Secure/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
+#hhreg <- sasxport.get("/media/Local_Secure/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
+#load("/media/Simple_Secure/Data/CVFS_HHReg/hhreg126.Rdata")
+load("/media/Local_Secure/CVFS_HHReg/hhreg126.Rdata")
 
 pdf(file=paste("migration_totals-", MONTHS.AWAY, "_months_away.pdf", sep=""))
 
