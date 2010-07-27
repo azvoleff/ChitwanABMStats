@@ -13,14 +13,10 @@ hhid.cols <- grep('^hhid[0-9]*$', names(hhreg))
 # Recode livng vars so that they are presense/absence of each indiv in the 
 # household
 hhreg[livng.cols][hhreg[livng.cols] == 1] <- 0 # 1 is originally resp away from household
-
 hhreg[livng.cols][hhreg[livng.cols] == 2] <- 1
 hhreg[livng.cols][hhreg[livng.cols] == 4] <- 1
 hhreg[livng.cols][hhreg[livng.cols] == 5] <- 1
-
 hhreg[livng.cols][hhreg[livng.cols] != 1] <- 0
-
-
 
 livngs.data <- cbind(hhreg[livng.cols], hhreg[hhid.cols])
 
