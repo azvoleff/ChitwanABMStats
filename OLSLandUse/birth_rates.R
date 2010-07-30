@@ -8,6 +8,23 @@ require(foreign)
 # Load the hhreg dataframe (household registry data)
 load("/media/Local_Secure/CVFS_HHReg/hhreg126.Rdata")
 
+# Load the neighborhood history data to get distance to Narayanghat (DISTNARA) 
+# and strata (STRATA) variables
+nbhhist <- read.xport("/media/Local_Secure/ICPSR_0538_Restricted/da04538-0014_REST.xpt")
+nbh.vars <- nbhhist[c(3, 1174, 1175)]
+names(nbh.vars) <- c("nid", "distnara", "strata")
+nbh.vars$nid <- sprintf("%03d", nbh.vars$nid)
+nbh.vars$strata <- factor(nbh.vars$strata)
+# Convert distance to Narayanghat from miles to kilometers
+nbh.vars$distnara <- nbh.vars$distnara / .62
+dist.category <- nbh.vars$distnara < 5
+dist.category[nbh.vars$distnara >= 5 & nbh.vars$distnara < 10]  <- 2
+dist.category[nbh.vars$distnara >= 10 & nbh.vars$distnara < 15]  <- 3
+dist.category[nbh.vars$distnara >= 15 & nbh.vars$distnara < 20]  <- 4
+dist.category[nbh.vars$distnara >= 20]  <- 5
+dist.category <- factor(dist.category, ordered=T)
+nbh.vars <- cbind(nbh.vars, dist.category)
+
 # First make an indicator for each time period of the neighborhood
 hhid.cols <- grep('^hhid[0-9]*$', names(hhreg))
 nids <- sapply(hhreg[hhid.cols], substr, 1, 3)
@@ -30,8 +47,6 @@ nid.cols <- grep('^nid[0-9]*$', names(hhreg))
 # figure out which neighborhoods to exclude (there should only be 138 not 151).
 
 # Only include data within neighborhoods 1-151
-
-# TODO: Add strata id key
 
 # For POP only include current HH residents (livng coded as 2 or 4)
 livng.cols <- grep('^livng[0-9]*$', names(hhreg))
@@ -62,29 +77,39 @@ sum.over.nbh <- function (datacols, factorcols, columnnames) {
 
 livebirths.nbh <- sum.over.nbh(hhreg[preg.cols]==3 & in.Chitwan,
         hhreg[nid.cols], names(hhreg[preg.cols]))
+names(livebirths.nbh) <- gsub("preg", "livebirths", names(livebirths.nbh))
 pop.nbh <- sum.over.nbh(hhreg[livng.cols]==2 & in.Chitwan, hhreg[nid.cols],
         names(hhreg[livng.cols]))
+names(pop.nbh) <- gsub("livng", "pop", names(pop.nbh))
 
 monthlabels <- seq(as.Date("1997/02/01"), as.Date("2007/07/01"),
         by="month")
 qplot(monthlabels, apply(pop.nbh[2:127], 2, sum), geom="line", xlab="Year",
-        ylab="Total Population Size")
-ggsave("pop.png", width=8.33, height=5.53, dpi=150)
+        ylab="Total Resident Sample Population")
+ggsave("pop.png", width=8.33, height=5.53, dpi=300)
 
 qplot(monthlabels, apply(livebirths.nbh[2:127], 2, sum), geom="line",
         xlab="Year", ylab="Total Number of Births (per month)")
-ggsave("births.png", width=8.33, height=5.53, dpi=150)
+ggsave("births.png", width=8.33, height=5.53, dpi=300)
 
 pop.runavg <- t(apply(pop.nbh[2:127], 1, filter, rep(1/12, 12),
         method="convolution", sides=2))
-births.runtotal <- t(apply(livebirths.nbh[2:127], 1, filter,  rep(1, 12),
+livebirths.runtotal <- t(apply(livebirths.nbh[2:127], 1, filter,  rep(1, 12),
         method="convolution", sides=2))
-crude.birth.rate.nbh <- births.runtotal / (pop.runavg/1000)
+crude.birth.rate.nbh <- livebirths.runtotal / (pop.runavg/1000)
 crude.birth.rate.avg <- apply(crude.birth.rate.nbh, 2, mean, na.rm=T)
 
 qplot(monthlabels, crude.birth.rate.avg, geom="line", xlab="Year",
         ylab="Crude Birth Rate (per 1000 people per year)")
-ggsave("crude_birth_rate.png", width=8.33, height=5.53, dpi=150)
+ggsave("crude_birth_rate.png", width=8.33, height=5.53, dpi=300)
+
+# Convert pop.runavg and livebirths.runtotal to data.frames so they can be merged 
+# with the other vital statistics
+pop.runavg <- data.frame(pop.runavg)
+names(pop.runavg) <- gsub("X", "pop.runavg", names(pop.runavg))
+livebirths.runtotal <- data.frame(livebirths.runtotal)
+names(livebirths.runtotal) <- gsub("X", "livebirths.runtotal", names(livebirths.runtotal))
+smootheddata <- cbind(nid=sprintf("%03d", c(1:151)), pop.runavg, livebirths.runtotal)
 
 # Output a crude birth rate calculated from Feb 1997 - Jan 2002 to use for my 
 # LULC OLS statistics
@@ -94,5 +119,32 @@ save(CBR.nbh, file="CBH_nbh.Rdata")
 
 # Check results based on the data used in the Axinn 2007, paper. Mean should be 
 # 72.61 births (per thousand people)
-axinn.CBR <- cbind(livebirths.nbh[1], CBR=apply(livebirths.nbh[2:48], 1, sum,
-        na.rm=T) / (apply(pop.nbh[,2:48], 1, mean, na.rm=T)/1000))
+#axinn.CBR <- cbind(livebirths.nbh[1], CBR=apply(livebirths.nbh[2:48], 1, sum,
+#        na.rm=T) / (apply(pop.nbh[,2:48], 1, mean, na.rm=T)/1000))
+
+# Stack the data so I can look at NBH diffs over time
+vital <- merge(nbh.vars, pop.nbh)
+vital <- merge(vital, smootheddata)
+vital <- merge(vital, livebirths.nbh)
+vital <- reshape(vital, direction="long", varying=5:ncol(vital),
+        sep="", idvar="nid", ids=vital$nid, timevar="timelabel")
+vital$timelabel <- monthlabels[vital$timelabel]
+
+livebirths.time.strata <- aggregate(vital$livebirths.runtotal,
+        by=list(timelabel=vital$timelabel, strata=vital$strata), sum)
+qplot(timelabel, x, colour=strata, geom="line", data=livebirths.time.strata, 
+        xlab="Year", ylab="Annual Number of Live Births")
+ggsave("livebirths_strata.png", width=8.33, height=5.53, dpi=300)
+
+livebirths.time.dist <- aggregate(vital$livebirths,
+        by=list(timelabel=vital$timelabel, dist.category=vital$dist.category),
+        sum, na.rm=T)
+qplot(timelabel, x, colour=dist.category, geom="line",
+        data=livebirths.time.dist, xlab="Year", ylab="Number of Live Births")
+ggsave("livebirths_distance.png", width=8.33, height=5.53, dpi=300)
+
+pop.time.strata <- aggregate(vital$pop, by=list(timelabel=vital$timelabel,
+        strata=vital$strata), sum, na.rm=T)
+qplot(timelabel, x, colour=strata, geom="line", data=pop.time.strata, 
+        xlab="Year", ylab="Resident Sample Population")
+ggsave("pop_strata.png", width=8.33, height=5.53, dpi=300)
