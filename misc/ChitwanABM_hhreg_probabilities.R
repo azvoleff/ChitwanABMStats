@@ -3,8 +3,14 @@
 # household registry data, and calculates several statistics (birth rates, 
 # marriage rates, and mortality rates) for parameterizing the ChitwanABM model.
 ###############################################################################
-library(Hmisc) # contains label function
-load("/media/Restricted/Data/CVFS_R_format/hhreg.Rdata")
+
+# Hmisc is needed as hhreg is a "labelled" dataframe. If Hmisc is nto included, 
+# will get errors saying "cannot coerce class "labelled" into a data.frame"
+require(Hmisc)
+require(ggplot2)
+
+load("/media/Local_Secure/CVFS_R_format/hhreg.Rdata")
+hhreg <- [hhreg$NEIGHID < 151,]
 
 # Function to write out probabilities of events in the format required by the 
 # ChitwanABM model.
@@ -20,6 +26,12 @@ make.txthazard <- function(probs, binlims, param.name) {
     txthazard <- paste(txthazard, "} | validate_hazard(", binlims[1], ", ",
             binlims[length(binlims)], ")]", sep="")
     return(txthazard)
+}
+
+plot.hazard <- function(probs, plottitle, plotfile) {
+    qplot(bin, prob, geom="line", xlab="Age (years)",
+            ylab="Annual probability", main=plottitle, data=probs)
+    ggsave(plotfile, width=8.33, height=5.53, dpi=300)
 }
 
 # Before the reshape, add a new set of columns (53 columns) coding whether a 
@@ -147,14 +159,14 @@ monthly.deaths <- with(events[events$livng==3,], aggregate(livng==3, by=list(tim
 # women are counted.
 
 # Preg status is only recorded in the hhreg data for women between the ages of 
-# 18 and 45
+# 18 and 45.
 events <- cbind(events, pregbin=matrix(0,nrow(events),1))
 preglims <- c(0, 14, 15, 16, 18, 20, 23, 26, 30, 35, 40, 45, 199)
 for (limindex in 1:(length(preglims)-1)) {
     events[events$age>=preglims[limindex] &
             events$age<preglims[limindex+1],]$pregbin <- preglims[limindex]
 }
-# Then count the number of death events per bin, only considering married women 
+# Then count the number of births per bin, only considering married women 
 # (there are only 2 births to unmarried women)
 fecund <- events[events$gender=="female" & !is.na(events$preg),]
 births <- with(fecund[fecund$hasspouse==1,], aggregate(preg==3,
@@ -164,7 +176,8 @@ birthpsnmnths <- aggregate(fecund$gender=="female",
 birthprob <- data.frame(bin=births$pregbin, prob=(births$x/birthpsnmnths$x)*12)
 
 # Calculate the number of births per month
-monthly.births <- with(events[events$preg==3,], aggregate(preg==3, by=list(time=time), sum))
+monthly.births <- with(events[events$preg==3,], aggregate(preg==3,
+        by=list(time=time), sum))
 
 # TODO: Also calculate the proportion of female/male births
 ###############################################################################
@@ -190,17 +203,41 @@ monthly.marriages.end <- with(events[events$maritchg==-1,],
 events$maritstat[is.na(events$maritstat)] <- 0
 marrpsnmnths <- aggregate(events$maritstat==1, by=list(gender=events$gender,
         deathbin=events$deathbin), sum)
-marrprob <- data.frame(gender=marriages$gender, bin=marriages$marrbin, prob=(marriages$x/marrpsnmnths$x)*12)
+marrprob <- data.frame(gender=marriages$gender, bin=marriages$marrbin,
+        prob=(marriages$x/marrpsnmnths$x)*12)
 
 ###############################################################################
 # Now write out probabilities to text
 ###############################################################################
-make.txthazard(birthprob$prob, preglims, "hazard.birth")
-make.txthazard(deathprob[deathprob$gender=="male",]$prob, deathlims,
-        "hazard.death.male")
-make.txthazard(deathprob[deathprob$gender=="female",]$prob, deathlims,
-        "hazard.death.female")
-make.txthazard(marrprob[marrprob$gender=="male",]$prob, marrlims,
-        "hazard.marriage.male")
-make.txthazard(marrprob[marrprob$gender=="female",]$prob, marrlims,
-        "hazard.marriage.female")
+txthazards <- c()
+txthazards <- c(txthazards, make.txthazard(birthprob$prob, preglims,
+        "hazard.birth"))
+txthazards <- c(txthazards,
+        make.txthazard(deathprob[deathprob$gender=="male",]$prob,
+        deathlims, "hazard.death.male"))
+txthazards <- c(txthazards,
+        make.txthazard(deathprob[deathprob$gender=="female",]$prob,
+        deathlims, "hazard.death.female"))
+txthazards <- c(txthazards,
+        make.txthazard(marrprob[marrprob$gender=="male",]$prob,
+        marrlims, "hazard.marriage.male"))
+txthazards <- c(txthazards,
+        make.txthazard(marrprob[marrprob$gender=="female",]$prob,
+        marrlims, "hazard.marriage.female"))
+write(txthazards, file="hazards.txt")
+
+theme_update(theme_grey(base_size=18))
+update_geom_defaults("step", aes(size=1.5))
+
+qplot(bin, prob*100, geom="step", xlab="Age (years)",
+        ylab="Annual probability of giving birth (%)",
+        data=birthprob)
+ggsave("birth_prob.png", width=8.33, height=5.53, dpi=300)
+
+qplot(bin, prob*100, geom="step", colour=gender, xlab="Age (years)",
+        ylab="Annual probability of dying (%)", data=deathprob)
+ggsave("death_prob.png", width=8.33, height=5.53, dpi=300)
+
+qplot(bin, prob*100, geom="step", colour=gender, xlab="Age (years)",
+        ylab="Annual probability of marrying (%)", data=marrprob)
+ggsave("marriage_prob.png", width=8.33, height=5.53, dpi=300)
