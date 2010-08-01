@@ -82,6 +82,10 @@ pop.nbh <- sum.over.nbh(hhreg[livng.cols]==2 & in.Chitwan, hhreg[nid.cols],
         names(hhreg[livng.cols]))
 names(pop.nbh) <- gsub("livng", "pop", names(pop.nbh))
 
+# Make plots
+theme_update(theme_grey(base_size=18))
+update_geom_defaults("line", aes(size=1))
+
 monthlabels <- seq(as.Date("1997/02/01"), as.Date("2007/07/01"),
         by="month")
 qplot(monthlabels, apply(pop.nbh[2:127], 2, sum), geom="line", xlab="Year",
