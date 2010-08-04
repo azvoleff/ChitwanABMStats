@@ -1,10 +1,9 @@
 ###############################################################################
-# Loads deaths and age at death from the ICPSR Restricted dataset DS0010, the 
-# household registry data, and calculates several statistics (birth rates, 
-# marriage rates, and mortality rates) for parameterizing the ChitwanABM model.
+# Loads the t1 individual interview data, and calculates desired number of 
+# children (for initializing the model).
 ###############################################################################
 library(Hmisc) # contains label function
-load("/media/Restricted/Data/CVFS_R_format/t1indiv.Rdata")
+load("/media/Local_Secure/CVFS_R_format/t1indiv.Rdata")
 columns <- grep('respid|f7$', names(t1indiv))
 desnumchild <- t1indiv[columns]
 names(desnumchild)[2] <- "numchild"
