@@ -84,7 +84,7 @@ names(pop.nbh) <- gsub("livng", "pop", names(pop.nbh))
 
 # Make plots
 theme_update(theme_grey(base_size=18))
-update_geom_defaults("line", aes(size=1))
+update_geom_defaults("line", aes(size=.5))
 
 monthlabels <- seq(as.Date("1997/02/01"), as.Date("2007/07/01"),
         by="month")
