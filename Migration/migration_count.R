@@ -8,7 +8,7 @@
 # In future, also consider WHERE within Chitwan migrants are primarily 
 # locating, and from WHERE within Chitwan migrants are primarily leaving.
 ###############################################################################
-
+j
 # MONTHS.AWAY gives the number of months a person must be away for a move to be 
 # considered a migration.
 MONTHS.AWAY <- 18
@@ -33,12 +33,11 @@ place.cols <- grep('^place[0-9]*$', names(hhreg))
 places <- hhreg[place.cols]
 age.cols <- grep('^age[0-9]*$', names(hhreg))
 
-
 # This function provides a mask to only consider people who have been living 
 # in the same place for a certain number of months. That way, persons who 
 # "migrated" and then returned to the same place after a month can be 
 # discounted in the analysis.
-mig.mask<- function(places, num.months) {
+mig.mask <- function(places, num.months) {
     places <- as.matrix(places)
     months <- array(0, c(nrow(places), ncol(places)-num.months, num.months+1))
     for (n in 1:(num.months+1)) {
@@ -58,8 +57,6 @@ mask.mig.duration <- mig.mask(places, MONTHS.AWAY)
 # the first month, so we have no idea if a migration ocurred prior to the first 
 # month.
 mask.mig.duration <- mask.mig.duration[,-1]
-
-
 
 # Setup place0 and place1 
 place0.cols <- 1:(length(place.cols)-MONTHS.AWAY-1)
