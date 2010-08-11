@@ -84,7 +84,7 @@ monthly <- data.frame(time.Robj=time.Robj, deaths=monthly.deaths)
 # Calculate the number of births per month
 preg.cols <- grep('^preg[0-9]*$', names(hhreg))
 monthly.livebirths <- apply(hhreg[preg.cols]==3 & in.Chitwan, 2, sum, na.rm=T)
-monthly <- cbind(monthly, livebirths=monthly.livebirths)
+monthly <- cbind(monthly, births=monthly.livebirths)
 
 ###############################################################################
 # Process marriages.
