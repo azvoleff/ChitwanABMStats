@@ -119,7 +119,7 @@ smootheddata <- cbind(nid=sprintf("%03d", c(1:151)), pop.runavg, livebirths.runt
 # LULC OLS statistics
 CBR.nbh <- cbind(livebirths.nbh[1], CBR=apply(livebirths.nbh[2:61], 1, sum,
         na.rm=T) / (apply(pop.nbh[,2:61], 1, mean, na.rm=T)/1000))
-save(CBR.nbh, file="CBH_nbh.Rdata")
+save(CBR.nbh, file="CBR_nbh.Rdata")
 
 # Check results based on the data used in the Axinn 2007, paper. Mean should be 
 # 72.61 births (per thousand people)
