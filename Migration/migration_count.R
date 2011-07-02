@@ -8,59 +8,66 @@
 # In future, also consider WHERE within Chitwan migrants are primarily 
 # locating, and from WHERE within Chitwan migrants are primarily leaving.
 ###############################################################################
-j
 # MONTHS.AWAY gives the number of months a person must be away for a move to be 
 # considered a migration.
-MONTHS.AWAY <- 18
+MONTHS.AWAY <- 12
 
 library("Hmisc")
-#hhreg <- sasxport.get("/media/Simple_Secure/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
-#hhreg <- sasxport.get("/media/Local_Secure/Data/ICPSR_0538_Restricted/da04538-0010_REST.xpt")
-#load("/media/Simple_Secure/Data/CVFS_HHReg/hhreg126.Rdata")
+print("Loading data...")
 load("/media/Local_Secure/CVFS_HHReg/hhreg126.Rdata")
 
-pdf(file=paste("migration_totals-", MONTHS.AWAY, "_months_away.pdf", sep=""))
+pdf(file=paste("migration_totals-", MONTHS.AWAY, "_months_away_20101011.pdf", sep=""))
 
 # First assemble from hhreg the migration outcomes for each month, leaving out 
 # any months after a move occurs.
-
-# Add an indicator to hhreg to allow later exclusion of individuals who have 
-# already migrated. This indicator starts out set at 0 (no migration) for all 
-# individuals.
-hhreg <- cbind(hhreg, migrated=0)
 
 place.cols <- grep('^place[0-9]*$', names(hhreg))
 places <- hhreg[place.cols]
 age.cols <- grep('^age[0-9]*$', names(hhreg))
 
-# This function provides a mask to only consider people who have been living 
-# in the same place for a certain number of months. That way, persons who 
-# "migrated" and then returned to the same place after a month can be 
-# discounted in the analysis.
-mig.mask <- function(places, num.months) {
-    places <- as.matrix(places)
-    months <- array(0, c(nrow(places), ncol(places)-num.months, num.months+1))
-    for (n in 1:(num.months+1)) {
-        month <- places[,n:(ncol(places)-num.months+n-1)]
-        months[,,n] <- month
+# This function provides a mask to only consider people who migrate and then 
+# live in the same place for a certain number of months.
+stayedput.mask <- function(places, num.months) {
+    places.sum <- as.matrix(places)
+    # To find out if a person stayed in a particular place for longer than n 
+    # months, add together the place codes for month 0, month 1 ... month n, 
+    # storing the total in month 0. Then divide the total (in the month zero 
+    # location), by the original month 0 place code. If this equals one, it 
+    # means that the person stayed in the location in month 0 for at least n 
+    # months. Recode all other values to 0. The last n months should also be 
+    # coded 0, as there is insufficient data to know if a respondent remained 
+    # in the location for at least n months.
+    for (n in 1:(num.months)) {
+        places.sum <- places.sum[1:(ncol(places.sum) - n)] + places.sum[(n + 1):ncol(places.sum)]
     } 
-    months <- apply(months, c(1,2), sum)
     month1.place <- places[,1:(ncol(places)-num.months)]
-    months <- months / ((num.months+1)*month1.place)
-    months[months != 1] <- 0
-    return(months)
+    places.sum <- places.sum / ((num.months+1)*month1.place)
+    places.array[places.array != 1] <- 0
+    return(places.array)
+}
+#stayedput <- stayedput.mask(places, MONTHS.AWAY)
+
+# This function makes a mask to see, for a given point in time t, if a person 
+# EVER is found in that same neighborhood from time t+1 to time t+MIN where MIN
+# is the minimum number of months a person must be away to be considered a 
+# migrant.  This way, persons who "migrate" and then return to the same place 
+# after a only a few months (less than MIN) can be discounted in the analysis.  
+# MIN is passed to the function as "num.months".
+everreturn.mask <- function(places, num.months) {
+    ever_return <- matrix(FALSE, nrow(places), ncol(places)-num.months)
+    for (n in 1:(num.months)) {
+        same.place <- places[,1:(ncol(places)-num.months)] == places[,(1+n):(ncol(places)-num.months+n)]
+        ever_return[same.place] <- TRUE
+    } 
+    return(ever_return)
 }
 
 print("Making mask...")
-mask.mig.duration <- mig.mask(places, MONTHS.AWAY)
-# Drop first column in the mask, as we do not know where people were prior to 
-# the first month, so we have no idea if a migration ocurred prior to the first 
-# month.
-mask.mig.duration <- mask.mig.duration[,-1]
+everreturn <- everreturn.mask(places, MONTHS.AWAY)
 
 # Setup place0 and place1 
-place0.cols <- 1:(length(place.cols)-MONTHS.AWAY-1)
-place1.cols <- 2:(length(place.cols)-MONTHS.AWAY)
+place0.cols <- 1:(length(place.cols)-MONTHS.AWAY)
+place1.cols <- 2:(length(place.cols)-MONTHS.AWAY+1)
 
 # No migration is PLACEn=PLACEn+1. A local to local migration is anything where 
 # the neighborhood ID changed from PLACEn to PLACEn+1, but the neighborhood ID 
@@ -70,9 +77,9 @@ mig.all <- places[place1.cols] - places[place0.cols]
 mig.all[mig.all<0] <- T
 mig.all[mig.all>0] <- T
 mig.all[mig.all==0] <- F
-mig.all <- mig.all * mask.mig.duration
+mig.all[everreturn] <- F
 # Months 1-126 correspond to February 1997 - June 2007.
-mig.all.ts <- ts(apply(mig.all, 2, sum, na.rm=T), start=c(1997, 2), deltat=1/12)
+mig.all.ts <- ts(apply(mig.all, 2, sum, na.rm=T), start=c(1997, 3), deltat=1/12)
 plot(mig.all.ts, type='l',
     main=paste("All migrations (months=", MONTHS.AWAY, ")", sep=""),
     xlab="Year")
@@ -80,13 +87,13 @@ plot(mig.all.ts, type='l',
 # Now calculate local->distant and distant->local migrations only
 print("Calculating LD and DL migrations...")
 places.dist <- places
-places.dist[places.dist<=502] <- 1 # local
+places.dist[places.dist<=502 & places.dist > 1] <- 1 # local
 places.dist[places.dist>502] <- 2 # distant
 mig.dist <- places.dist[place1.cols] - places.dist[place0.cols]
-mig.dist <- mig.dist * mask.mig.duration
 mig.dist[mig.dist==1] <- "DL"
 mig.dist[mig.dist==-1] <- "LD"
 mig.dist[mig.dist==0] <- F
+mig.dist[everreturn] <- F
 mig.DL.ts <- ts(apply(mig.dist=="DL", 2, sum, na.rm=T), start=c(1997, 2), deltat=1/12)
 plot(mig.DL.ts, type='l',
     main=paste("Distant-local migrations (months=", MONTHS.AWAY, ")",
@@ -100,9 +107,9 @@ print("Calculating LL migrations...")
 places.local <- places
 places.local[places.local>502] <- NA
 mig.local <- places.local[place1.cols] - places.local[place0.cols]
-mig.local <- mig.local * mask.mig.duration
 mig.local[mig.local!=0] <- "LL"
 mig.local[mig.local==0] <- F
+mig.local[everreturn] <- F
 mig.LL.ts <- ts(apply(mig.local=="LL", 2, sum, na.rm=T), start=c(1997, 2), deltat=1/12)
 plot(mig.LL.ts, type='l',
     main=paste("Local-local migrations (months=", MONTHS.AWAY, ")", sep=""),
@@ -111,4 +118,4 @@ plot(mig.LL.ts, type='l',
 dev.off()
 
 rm(hhreg)
-save.image(file=paste("migration_count-", MONTHS.AWAY, "_months_away.Rdata", sep=""))
+save.image(file=paste("migration_count-", MONTHS.AWAY, "_months_away_20101011.Rdata", sep=""))
