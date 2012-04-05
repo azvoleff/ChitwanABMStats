@@ -6,8 +6,14 @@
 require(lme4)
 
 require(ggplot2)
-theme_update(theme_grey(base_size=18))
 update_geom_defaults("line", aes(size=1))
+update_geom_defaults("smooth", aes(size=1))
+theme_update(theme_grey(base_size=24))
+update_geom_defaults("point", aes(size=3))
+
+DPI <- 300
+WIDTH <- 9
+HEIGHT <- 5.67
 
 load("hhwu1.Rdata")
 load("hhwu2.Rdata")
@@ -17,6 +23,7 @@ load("hhwu2.Rdata")
 # Select only the columns that I need out of the hhwu1 dataset.
 hhwu <- hhwu1[c(2, 3, 4, 17, 85:91)]
 
+hhwu <- cbind(hhwu, Special.Occasion=rep(0, nrow(hhwu)))
 # Also add an "average age" column, that is the average of the ages of all the 
 # household members present for hhwu1.
 age.cols <- grep("Psn.Age.", names(hhwu1))
@@ -59,6 +66,8 @@ newcols <- data.frame(ID.Full=hhwu2$ID.Full, Mass.Used.Mean,
 
 hhwu <- merge(hhwu, newcols, by="ID.Full")
 
+hhwu$Special.Occasion[hhwu$HHSize.Avg.Mean>7] <- 1
+
 hhsize.cols <- grep("^HHSize.Avg.[1-5]$", names(hhwu))
 mass.used.cols <- grep("^Mass.Used.[1-5]$", names(hhwu))
 mass.used.pp.cols <- grep("^Mass.Used.pp.[1-5]$", names(hhwu))
@@ -69,16 +78,36 @@ hhwu.long <- reshape(hhwu, varying=list(hhsize.cols, mass.used.cols,
 # Sort data for later plotting
 hhwu <- hhwu[order(hhwu$HHSize.Avg.Mean),]
 
+# Drop outliers
+#hhwu <- hhwu[!hhwu$HHSize.Avg.Mean > 8,]
+#hhwu.long <- hhwu.long[!hhwu.long$HHSize.Avg.1 > 8,]
+
 # Make mixed-effects models
-lmer1 <- lmer(Mass.Used.1 ~ (HHSize.Avg.1 | ID.Full), hhwu.long)
+lmer1 <- lmer(Mass.Used.1 ~ HHSize.Avg.1 +  (1 | ID.Full), hhwu.long)
 # Look at a crude R^2 measure:
-#cor(hhwu.long$Mass.Used.1, fitted(lmer1))^2
 lmer2 <- lmer(Mass.Used.1 ~ Ethnicity + Stove.Wood +
-        (HHSize.Avg.1 | ID.Full), hhwu.long)
+        HHSize.Avg.1 + (1 | ID.Full), hhwu.long)
 lmer3 <- lmer(Mass.Used.1 ~ Ethnic.Indic + Own.NW.Stove +
-        (HHSize.Avg.1 | ID.Full), hhwu.long)
-lmer4 <- lmer(Mass.Used.1 ~ Period + Ethnic.Indic + Own.NW.Stove +
-        (HHSize.Avg.1 | ID.Full), hhwu.long)
+        HHSize.Avg.1 + (1 | ID.Full), hhwu.long)
+lmer4 <- lmer(Mass.Used.1 ~ Ethnic.Indic + Own.NW.Stove +
+        HHSize.Avg.1 + Psn.Age.Mean + (1 | Period) + (1 | ID.Full), hhwu.long)
+lmer5 <- lmer(Mass.Used.1 ~ Ethnic.Indic + Own.NW.Stove +
+        HHSize.Avg.1 + (1 | Period) + (1 | ID.Full), hhwu.long)
+lmer6 <- lmer(Mass.Used.1 / HHSize.Avg.1 ~ Ethnic.Indic + Own.NW.Stove +
+        HHSize.Avg.1 + (1 | ID.Full), hhwu.long)
+lmer7 <- lmer(Mass.Used.1 / HHSize.Avg.1 ~ Ethnicity + Own.NW.Stove +
+        HHSize.Avg.1 + I(HHSize.Avg.1^2) + (1 | ID.Full), hhwu.long)
+lmer8 <- lmer(Mass.Used.1 ~ Ethnicity + Own.NW.Stove +
+        HHSize.Avg.1 + I(HHSize.Avg.1^2) + (1 | ID.Full), hhwu.long)
+
+test_data <- data.frame(HHSize.Avg.1=c(1:max(hhwu.long$HHSize.Avg.1)))
+test_data <- cbind(test_data,
+        Own.NW.Stove=rep(0, nrow(test_data)),
+        Ethnic.Indic=rep(0, nrow(test_data)),
+        Mass.Used.1=rep(0, nrow(test_data)))
+mm <-  model.matrix(terms(lmer6), test_data)
+pred_mass_used <- mm %*% fixef(lmer6)
+lmer6_cor <- cor(hhwu.long$Mass.Used.1, fitted(lmer6))^2
 
 # Create a linear model where all 5 measurements are averaged for each 
 # household (as the 5 measurements are not independent).
@@ -90,51 +119,47 @@ lm2 <- lm(Mass.Used.Mean ~ Own.NW.Stove, hhwu)
 lm3 <- lm(Mass.Used.Mean ~ HHSize.Avg.Mean + Ethnic.Indic, hhwu)
 lm4 <- lm(Mass.Used.Mean ~ HHSize.Avg.Mean + Own.NW.Stove, hhwu)
 lm5 <- lm(Mass.Used.Mean ~ HHSize.Avg.Mean + Ethnic.Indic + Own.NW.Stove, hhwu)
-lm5.pp.sq <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean + Ethnic.Indic + Own.NW.Stove + I(HHSize.Avg.Mean^2), hhwu)
+lm5.pp <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean + Ethnic.Indic + Own.NW.Stove, hhwu)
 lm6 <- lm(Mass.Used.Mean ~ HHSize.Avg.Mean + Ethnic.Indic + Own.NW.Stove + Psn.Age.Mean, hhwu)
-
-
-# lm5 is the best fit.  Try the fit again with the huge household 
-# (HHSize.Avg.Mean=10.8) removed:
-outlierrow <- which(hhwu$HHSize.Avg.Mean == max(hhwu$HHSize.Avg.Mean))
-hhwu.rmoutlier <- hhwu[-outlierrow,]
-lm5.rmooutlier <- lm(Mass.Used.Mean ~ HHSize.Avg.Mean + Ethnic.Indic + Own.NW.Stove, hhwu.rmoutlier)
-lm1.pp.rmoutlier <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean, hhwu.rmoutlier)
-lm1.pp.sq.rmoutlier <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean + I(HHSize.Avg.Mean^2), hhwu.rmoutlier)
-lm1.rmoutlier <- lm(Mass.Used.Mean ~ HHSize.Avg.Mean, hhwu.rmoutlier)
-lm1.rmoutlier.pp <- lm(Mass.Used.Mean/HHSize.Avg.Mean ~ HHSize.Avg.Mean, hhwu.rmoutlier)
-lm1.rmoutlier.pp.sq <- lm(Mass.Used.Mean/HHSize.Avg.Mean ~ HHSize.Avg.Mean + I(HHSize.Avg.Mean^2), hhwu.rmoutlier)
-lm5.rmoutlier.pp.sq <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean + Ethnic.Indic + Own.NW.Stove + I(HHSize.Avg.Mean^2), hhwu.rmoutlier)
-# The fit is roughly the same. Also, when tested, none of the interaction terms 
-# are significant.
-
+lm7 <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean + Ethnic.Indic + Own.NW.Stove, hhwu)
+lm8 <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean + Ethnic.Indic + Own.NW.Stove + I(HHSize.Avg.Mean^2), hhwu)
+lm9 <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean + Ethnicity + Own.NW.Stove, hhwu)
+lm10 <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean + Ethnicity + Own.NW.Stove + I(HHSize.Avg.Mean^2), hhwu)
+lm11 <- lm(Mass.Used.Mean / HHSize.Avg.Mean ~ HHSize.Avg.Mean + Ethnicity + Special.Occasion + Own.NW.Stove + I(HHSize.Avg.Mean^2), hhwu)
 
 ###############################################################################
 # Now, make plots for powerpoint
 #
 # Make a histogram of household sizes
-
-# mai is specifed as c(bottom, left, top, right)
 qplot(hhwu$HHSize.Avg.Mean, geom="histogram", binwidth=1,
         xlab="Household Size (number of persons)", ylab="Frequency",
         ylim=c(0,12), xlim=c(0,11))
-ggsave("hhsizes_hist.png", width=8.33, height=5.53, dpi=300)
+ggsave("hhsizes_hist.png", width=WIDTH, height=HEIGHT, dpi=DPI)
 
 # Make a histogram of wood usage
-qplot(hhwu$Mass.Used.Mean, geom="histogram", binwidth=.75,
-        xlab="Wood Usage (dry Kg / (HH * day))", ylab="Frequency", xlim=c(0,5))
-ggsave("fwusage_hist.png", width=8.33, height=5.53, dpi=300)
+qplot(hhwu$Mass.Used.Mean/hhwu$HHSize.Avg.Mean, geom="histogram", binwidth=.75,
+        xlab="Wood Usage (dry Kg / (psn * day))", ylab="Frequency", xlim=c(0,5))
+ggsave("fwusage_hist.png", width=WIDTH, height=HEIGHT, dpi=DPI)
 
 # Make a plot of household sizes vs wood usage with fit
 #annotation.eqn <- paste("FW Mass = ", round(lm1$coefficients[1], digits=2), " + ",
 #        round(lm1$coefficients[2], digits=2),"×HHSize\n", sep="")
 #annotation.R2 <- expression(R[adj]^{2} == ".10")
-ggplot() + geom_point(data=hhwu, aes(HHSize.Avg.Mean, hhwu$Mass.Used.Mean)) +
-        geom_line(data=hhwu, aes(HHSize.Avg.Mean, predict(lm1))) + 
-        scale_x_continuous(name="Mean Household Size (number of persons)") +
-        scale_y_continuous(name="Wood Mass (dry Kg / (HH * day))")
-ggsave("hhsize_vs_fwusage.png", width=8.33, height=5.53, dpi=300)
 
+# Plot an example prediction from model lm10
+test_data <- data.frame(HHSize.Avg.Mean=c(1:7))
+test_data <- cbind(test_data,
+        Ethnicity=as.factor(rep(1, nrow(test_data))),
+        Own.NW.Stove=as.factor(rep(1, nrow(test_data))),
+        Mass.Used.Mean=rep(0, nrow(test_data)))
+test_data_end <- test_data[1:5,] # Used to plot flat line for fw_usage after 7 psn hhize
+test_data_end$HHSize.Avg.Mean <- 7
+qplot(test_data$HHSize.Avg.Mean, predict(lm10, test_data), geom="line",
+      xlab="Mean Household Size (number of persons)",
+      ylab="Wood Mass (dry Kg / (psn * day))") +
+      geom_line(aes(c(7:11), predict(lm10, test_data_end))) + 
+      geom_point(aes(HHSize.Avg.Mean, Mass.Used.Mean/HHSize.Avg.Mean, data=hhwu))
+ggsave("hhsize_vs_fwusage_lm10.png", width=WIDTH, height=HEIGHT, dpi=DPI)
 
 # Make a plot of household sizes vs wood usage with fit, on a per-person basis
 #annotation.eqn <- paste("FW Mass = ", round(lm1.pp.sq$coefficients[1], digits=2),
@@ -142,9 +167,13 @@ ggsave("hhsize_vs_fwusage.png", width=8.33, height=5.53, dpi=300)
 #        " + ", round(lm1.pp.sq$coefficients[3], digits=2),"×HHSize^2\n", 
 #        sep="")
 #annotation.R2 <- expression(R[adj]^{2} == ".15"), cex=.8)
-ggplot() + geom_point(data=hhwu.rmoutlier, aes(HHSize.Avg.Mean,
-        Mass.Used.Mean/HHSize.Avg.Mean)) + geom_line(data=hhwu.rmoutlier,
-        aes(HHSize.Avg.Mean, predict(lm1.rmoutlier.pp.sq))) +
-        scale_x_continuous(name="Mean Household Size (number of persons)") +
-        scale_y_continuous(name="Wood Mass (dry Kg / (psn * day))")
-ggsave("hhsize_vs_fwusage_pp.png", width=8.33, height=5.53, dpi=300)
+qplot(HHSize.Avg.Mean, Mass.Used.Mean/HHSize.Avg.Mean, data=hhwu,
+        xlab="Mean Household Size (number of persons)",
+        ylab="Wood Mass (dry Kg / (psn * day))") +
+        geom_line(data=hhwu, aes(HHSize.Avg.Mean, predict(lm1.pp)))
+ggsave("hhsize_vs_fwusage_pp.png", width=WIDTH, height=HEIGHT, dpi=DPI)
+
+qplot(HHSize.Avg.Mean, Mass.Used.Mean/HHSize.Avg.Mean, geom="point", data=hhwu,
+        xlab="Mean Household Size (number of persons)",
+        ylab="Wood Mass (dry Kg / (psn * day))") + geom_smooth()
+ggsave("hhsize_vs_fwusage_smoothed.png", width=WIDTH, height=HEIGHT, dpi=DPI)
