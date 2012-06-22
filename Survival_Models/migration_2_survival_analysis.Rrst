@@ -1,0 +1,37 @@
+===============================================================================
+Migration Survival Analysis Code for the ChitwanABM
+===============================================================================
+
+Uses survival analysis to parameterize the ChitwanABM using data from the 
+Chitwan Valley Family Study.
+
+Setup 
+===============================================================================
+
+.. {r setup_reST_options, echo=FALSE}
+require(knitr)
+# Setup reST options:
+options(width = 75)
+opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
+    fig.width=4.5, fig.height=3, out.width='4.5in', out.height='3in', dpi=300, 
+    dev='pdf', comment=NA)
+.. ..
+
+.. {r setup, results='hide', messages=FALSE}
+require(knitr)
+require(ggplot2)
+require(lme4)
+#theme_update(theme_grey(base_size=10))
+theme_update(theme_bw(base_size=10))
+#update_geom_defaults("point", aes(size=2))
+#update_geom_defaults("line", aes(size=.75))
+ 
+load("migration_data_wideformat_all_LD_migrations-3_months_away.Rdata")
+.. ..
+
+.. {r setup, results='hide', messages=FALSE}
+
+.. ..
+
+.. important:: Explain the difference between WDPAI and WDPAN
+
