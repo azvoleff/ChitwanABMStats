@@ -8,7 +8,8 @@
 # will get errors saying "cannot coerce class "labelled" into a data.frame"
 require(Hmisc)
 
-load("/media/Local_Secure/CVFS_R_format/hhreg.Rdata")
+#load("/media/Local_Secure/CVFS_R_format/hhreg.Rdata")
+load("T:/CVFS_R_format/hhreg.Rdata")
 load("t1_lulc.Rdata")
 
 # Drop individuals younger than 15, and older than 20 as of 1996
@@ -89,31 +90,39 @@ marriages <- merge(marriages, lulc)
 
 save(marriages, file="marriage_times.Rdata")
 
+###############################################################################
+# Now process an event history dataset in person-months
+###############################################################################
 # Censor data: add NAs for every month after the first marriage
-#for (rownum in 1:nrow(hhreg)) {
-#    for (colnum in maritcolumns[2:length(maritcolumns)]) {
-#        if (hhreg[rownum, colnum-1]==1 | is.na(hhreg[rownum, colnum-1])) {
-#            hhreg[rownum, colnum] <- NA
-#        }
-#    }
-#}
+for (rownum in 1:nrow(hhreg)) {
+    for (colnum in maritcolumns[2:length(maritcolumns)]) {
+        if (hhreg[rownum, colnum-1]==1 | is.na(hhreg[rownum, colnum-1])) {
+            hhreg[rownum, colnum] <- NA
+        }
+    }
+}
 
-###############################################################################
-# Now do the reshape.
-###############################################################################
+# Add a series of interpolated agveg LULC columns
+pagrit1, pagrit2
+
 # Find the column indices of all columns that are needed
-#varying_cols <- grep('^(marit|age|hhid|place)[0-9]*$', names(hhreg))
-#non_varying_cols <- grep('^(gender|ethnic|respid|agelt)]*$', names(hhreg))
+varying_cols <- grep('^(marit|age|hhid|place)[0-9]*$', names(hhreg))
+non_varying_cols <- grep('^(gender|ethnic|respid|agelt)]*$', names(hhreg))
 
 # Reshape age Include columns 1, 3, and 4 as these are respid, ethnic, and 
 # gender, respectively.
-#events <- reshape(hhreg[c(non_varying_cols, varying_cols)], direction="long",
-        #        varying=names(hhreg[varying_cols]), idvar="respid", timevar="time", 
-        #        sep="")
+events <- reshape(hhreg[c(non_varying_cols, varying_cols)], direction="long",
+                varying=names(hhreg[varying_cols]), idvar="respid", timevar="time", 
+                sep="")
 
-#events <- events[events$place<=151 & events$place>=1,]
-#names(events)[grep('place', names(events))] <- "nid"
+events <- events[events$place<=151 & events$place>=1,]
+names(events)[grep('place', names(events))] <- "nid"
 
-#events <- merge(events, lulc)
+events <- merge(events, lulc)
+save(events, file="marriage_events_censored.Rdata")
 
-#save(events, file="marriage_events_censored.Rdata")
+# Save another version where person is dropped for all months after their 
+# marriage (they are no longer considered at risk).
+events <- events[!is.na(events$marit),]
+
+save(events, file="marriage_events_atrisk.Rdata")

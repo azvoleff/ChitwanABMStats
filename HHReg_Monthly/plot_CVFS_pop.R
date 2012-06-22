@@ -10,7 +10,7 @@
 require(Hmisc)
 require(ggplot2)
 
-load("/media/Local_Secure/CVFS_HHReg/hhreg126.Rdata")
+load("U:/CVFS_HHReg/hhreg126.Rdata")
 
 # Make an indicator for if a person is a current resident of Chitwan residing 
 # in a survey household
