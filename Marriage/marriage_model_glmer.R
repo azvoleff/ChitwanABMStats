@@ -4,27 +4,32 @@
 ###############################################################################
 
 require("lme4")
+require("Hmisc")
 require("MASS")
 require("ggplot2")
+require("ggplot2")
+require("arm") # for se.coef, se.fixef
 
-# Load the marriage data (stored in a dataframe as person-months)
-#load("marriage_marriages_censored.Rdata")
-load("marriage_times.Rdata")
 # Load the marriage data (stored in a dataframe with censoring information)
 load("marriage_events_censored.Rdata")
+load("nbh_data_dirgha.Rdata")
 
-# Consider only local marriages (coded as 1)
-print("Fitting the models...")
-marriages$respid <- factor(marriages$respid)
+events <- merge(events, nbh_data)
 
-marriages <- cbind(marriages, logagveg=log(marriages$perc_agveg*100))
-marriages$logagveg[is.infinite(marriages$logagveg)] <- 0
-marriages$logagveg[marriages$logagveg < 0] <- 0
+events$respid <- factor(events$respid)
+events$nid <- factor(events$nid)
+events$marit <- factor(events$marit)
 
-mixed_model <- with(marriages, glmer(marriage_outcome ~ gender +
-        ethnic + status_age + I(status_age**2) + (logagveg | nid),
-        family=binomial, na.action="na.omit"))
-results.mixed <- summary(mixed_model)$coefficients[,c(0,1,3)]
-results.mixed[,1] <- exp(results.mixed[,1])
-results.mixed <- round(results.mixed, digits=2)
-write.csv(results.mixed, file="mixed_model.csv")
+events <- cbind(events, logagveg=log(events$perc_agveg*100))
+events$logagveg[is.infinite(events$logagveg)] <- 0
+events$logagveg[events$logagveg < 0] <- 0
+events <- cbind(events, month=as.factor(events$time%%12))
+
+mixed_model <- with(events, glmer(marit ~ gender + ethnic + age + I(age**2) +
+        logagveg + schlft52 + hlthft52 + busft52 + marft52 + empft52 + month + (1 | nid),
+        nAGQ=100, family=binomial, na.action="na.omit"))
+results.mixed <- data.frame(coef=fixef(mixed_model), odds_ratios=exp(fixef(mixed_model)),
+        se=se.fixef(mixed_model))
+results.mixed <- round(results.mixed, 2)
+
+write.csv(results.mixed, file="mixed_model_20110805.csv")
