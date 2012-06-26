@@ -1,12 +1,9 @@
 ###############################################################################
-# Instead of looking at hazard of migration, considers number of migrants per 
-# month in western Chitwan Valley (WCV) in several categories, to see if there 
-# is any seasonality, separate from climate.
+# Preprocesses household registry data to prepare for survival analysis of 
+# migration.
 #     1) Local migration (from within WCV to within WCV)
 #     3) Distant out-migration (from WCV to outside WCV)
 #     2) Distant in-migration (from outside of WCV to WCV)
-# In future, also consider WHERE within Chitwan migrants are primarily 
-# locating, and from WHERE within Chitwan migrants are primarily leaving.
 ###############################################################################
 # MONTHS.AWAY gives the number of months a person must be away for a move to be 
 # considered a migration.
@@ -109,7 +106,8 @@ LD_first_migration_col <- apply(LDmigrations, 1, function(x) match("LD", x, noma
 DL_first_migration_col <- apply(LDmigrations, 1, function(x) match("DL", x, nomatch=NA))
 time_outside <- LD_first_migration_col - DL_first_migration_col
 #mean(time_outside, na.rm=T)
-qplot(time_outside[time_outside<36], geom="histogram", xlab="Months Away", ylab="Count")
+qplot(time_outside[time_outside<36], geom="histogram", xlab="Months Away", 
+      ylab="Count", binwidth=3)
 ggsave(paste("time_outside-", MONTHS.AWAY, "_months_away.png", sep=""), 
        width=PLOT_WIDTH, height=PLOT_HEIGHT, dpi=DPI)
 save(time_outside, file=paste("time_outside-", MONTHS.AWAY, "_months_away.Rdata", sep=""))
@@ -181,15 +179,15 @@ names(originNBH) <- gsub('migr', 'originNBH', names(originNBH))
 # earlier for this dataframe).
 LDmigrations <- cbind(respid=row.names(LDmigrations), LDmigrations)
 indepvars <- cbind(hhreg[respid.col], hhreg[ethnic.col], hhreg[gender.col], originNBH, hhreg[age.cols][2:(length(age.cols)-MONTHS.AWAY+1)], hhreg[hhid.cols][2:(length(hhid.cols)-MONTHS.AWAY+1)])
-LDmigrations.merged <- merge(indepvars, LDmigrations, by="respid", all.x=F, all.y=T)
-save(LDmigrations.merged, file=paste("migration_data_wideformat-", MONTHS.AWAY, "_months_away.Rdata", sep=""))
+LDmigrations.wide <- merge(indepvars, LDmigrations, by="respid", all.x=F, all.y=T)
+save(LDmigrations.wide, file=paste("migration_data_wideformat-", MONTHS.AWAY, "_months_away.Rdata", sep=""))
 
-LDmig.migr.cols <- grep('^migr[0-9]*$', names(LDmigrations.merged))
-LDmig.age.cols <- grep('^age[0-9]*$', names(LDmigrations.merged))
-LDmig.hhid.cols <- grep('^hhid[0-9]*$', names(LDmigrations.merged))
-LDmig.originNBH.cols <- grep('^originNBH[0-9]*$', names(LDmigrations.merged))
+LDmig.migr.cols <- grep('^migr[0-9]*$', names(LDmigrations.wide))
+LDmig.age.cols <- grep('^age[0-9]*$', names(LDmigrations.wide))
+LDmig.hhid.cols <- grep('^hhid[0-9]*$', names(LDmigrations.wide))
+LDmig.originNBH.cols <- grep('^originNBH[0-9]*$', names(LDmigrations.wide))
 # Now construct the long-format dataset
-LDmigrations.long <- reshape(LDmigrations.merged, idvar="respid", 
+LDmigrations.long <- reshape(LDmigrations.wide, idvar="respid", 
                              varying=list(LDmig.migr.cols, LDmig.age.cols,
                                           LDmig.hhid.cols, 
                                           LDmig.originNBH.cols), 

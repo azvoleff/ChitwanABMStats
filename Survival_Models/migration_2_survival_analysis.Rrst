@@ -5,7 +5,26 @@ Migration Survival Analysis Code for the ChitwanABM
 Uses survival analysis to parameterize the ChitwanABM using data from the 
 Chitwan Valley Family Study.
 
-Setup 
+Note the following regarding this source dataset, created from 
+the migration_1_preprocess.R script:
+
+    1) The data contains only respondents from the CVSF who were present in the 
+    dataset, in a "local" neighborhood in Chitwan in the first month of 1996.
+
+    2) Only local to distant migrations are coded. A local to distant migration 
+    is defined as a person leaving the Chitwan Valley for a location outside 
+    the valley (regardless of whether they make a move within Nepal or 
+    internationally).
+
+    3) Age, household ID, gender, and respondent ID are all coded from the CVFS 
+    data.
+
+    4) Only 126 months of data were available. Given that one months was used 
+    to define the minimum period away from a household to be considered a 
+    migrant, there were only 125 months of data to consider (as migrations 
+    cannot be conclusively determined within the last one month of data).
+
+Load the data and setup R
 ===============================================================================
 
 .. {r setup_reST_options, echo=FALSE}
@@ -18,20 +37,85 @@ opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
 .. ..
 
 .. {r setup, results='hide', messages=FALSE}
-require(knitr)
 require(ggplot2)
 require(lme4)
+require(arm) # for se.coef, se.fixef
 #theme_update(theme_grey(base_size=10))
 theme_update(theme_bw(base_size=10))
 #update_geom_defaults("point", aes(size=2))
 #update_geom_defaults("line", aes(size=.75))
  
-load("migration_data_wideformat_all_LD_migrations-3_months_away.Rdata")
+#load("migration_data_wideformat-1_months_away.Rdata")
+load("migration_data_longformat-1_months_away.Rdata")
+
+# Eliminate the two rows that have FALSE instead of just 0/1 coding:
+LDmigrations.long <- LDmigrations.long[!(LDmigrations.long$migr==FALSE),]
+LDmigrations.long$migr <- as.numeric(LDmigrations.long$migr)
+# Recode "other" ethnicity to Terai tibeto-burmese
+LDmigrations.long$ethnic[LDmigrations.long$ethnic==6] <- 5
+LDmigrations.long$ethnic <- as.factor(LDmigrations.long$ethnic)
+LDmigrations.long$gender <- as.factor(LDmigrations.long$gender)
+
+# To stabilize numerical algorithm (to avoid "false convergence" error in 
+# glmer), convert time and age to decades. This makes the betas on these two 
+# larger and stabilizes the optimization algorithm.
+LDmigrations.long <- LDmigrations.long
+LDmigrations.long$time <- LDmigrations.long$time/120
+LDmigrations.long$agegrp <- rep("", nrow(LDmigrations.long))
+LDmigrations.long$agegrp[LDmigrations.long$age<=20] <- "<=20"
+LDmigrations.long$agegrp[LDmigrations.long$age>20 & LDmigrations.long$age<=30] <- "<=30"
+LDmigrations.long$agegrp[LDmigrations.long$age>30 & LDmigrations.long$age<=40] <- "<=40"
+LDmigrations.long$agegrp[LDmigrations.long$age>40 & LDmigrations.long$age<=50] <- "<=50"
+LDmigrations.long$agegrp[LDmigrations.long$age>50] <- ">50"
+LDmigrations.long$agegrp <- factor(LDmigrations.long$agegrp)
+with(LDmigrations.long, xtabs(migr ~ agegrp + ethnic + gender))
+xtabs(LDmigrations.long$migr ~ LDmigrations.long$agegrp)
 .. ..
 
-.. {r setup, results='hide', messages=FALSE}
-
+Run models
+===============================================================================
+Fixed effect model
+_______________________________________________________________________________
+.. {r LD_fixed}
+LD_fixed <- glm(migr ~ ethnic + gender + agegrp + time + I(time**2),
+                    data=LDmigrations.long, family=binomial)
+LD_fixed.results <- data.frame(coef=coef(LD_fixed),
+    odds_ratio=exp(coef(LD_fixed)), se=se.coef(LD_fixed))
+save(LD_fixed, file="migration_LD_fixed.Rdata")
+summary(LD_fixed)
 .. ..
 
-.. important:: Explain the difference between WDPAI and WDPAN
+Mixed-effects model - random intercept at neighborhood level
+_______________________________________________________________________________
+.. {r LD_random_int}
+LD_random_int <- glmer(migr ~ ethnic + gender + agegrp +  time + I(time**2) +
+                            (1 | originNBH), data=LDmigrations.long, 
+                            family=binomial, verbose=TRUE)
+LD_random_int.results <- data.frame(coef=fixef(LD_random_int),
+    odds_ratio=exp(fixef(LD_random_int)), se=se.fixef(LD_random_int))
+LD_random_int.results <- round(LD_random_int.results, 4)
+summary(LD_random_int)
+save(LD_random_int, file="migration_LD_random_int.Rdata")
+LD_random_int.results
+.. ..
 
+Mixed-effects model - random intercepts at individual and neighborhood level
+_______________________________________________________________________________
+
+.. {r LD_random_int_2level}
+LD_random_int_2level <- glmer(migr ~ ethnic + gender + agegrp + 
+                                time + I(time**2) + (1 | respid) +
+                                (1 | originNBH), data=LDmigrations.long, 
+                                family=binomial, verbose=TRUE)
+LD_random_int_2level.results <- data.frame(coef=fixef(LD_random_int_2level),
+    odds_ratio=exp(fixef(LD_random_int_2level)), se=se.fixef(LD_random_int_2level))
+LD_random_int_2level.results <- round(LD_random_int_2level.results, 4)
+summary(LD_random_int_2level)
+LD_random_int_2level.results
+save(LD_random_int_2level, file="migration_LD_random_int_2level.Rdata")
+.. ..
+
+Discussion
+===============================================================================
+
+The fixed effect model (using GLM with a person-history dataset)
