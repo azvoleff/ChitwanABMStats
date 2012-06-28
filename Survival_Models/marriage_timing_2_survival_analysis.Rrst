@@ -1,0 +1,50 @@
+Predicts the Hazard of Marriage From a Set of Variables Using glmer
+===============================================================================
+
+.. {r setup_reST_options, echo=FALSE}
+require(knitr)
+# Setup reST options:
+options(width = 75)
+opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
+    fig.width=4.5, fig.height=3, out.width='4.5in', out.height='3in', dpi=300, 
+    dev='pdf', comment=NA)
+.. ..
+
+
+.. {r setup, results='hide', messages=FALSE}
+require(lme4)
+require(Hmisc)
+require(MASS)
+require(ggplot2)
+require(arm) # for se.coef, se.fixef
+
+# Load the marriage data (stored in a dataframe with censoring information)
+load("marriage_events_censored.Rdata")
+load("nbh_data_dirgha.Rdata")
+
+events <- merge(events, nbh_data)
+
+events$respid <- factor(events$respid)
+events$nid <- factor(events$nid)
+events$marit <- factor(events$marit)
+
+events <- cbind(events, logagveg=log(events$perc_agveg*100))
+events$logagveg[is.infinite(events$logagveg)] <- 0
+events$logagveg[events$logagveg < 0] <- 0
+events <- cbind(events, month=as.factor(events$time%%12))
+.. ..
+
+Mixed-effects model - random intercept at neighborhood level
+_______________________________________________________________________________
+.. {r LD_random_int}
+marr_rand_int <- with(events, glmer(marit ~ gender + ethnic + age + I(age**2) +
+        logagveg + schlft52 + hlthft52 + busft52 + marft52 + empft52 + month + (1 | nid),
+        nAGQ=100, family=binomial, na.action="na.omit"))
+summary(marr_rand_int)
+marr_rand_int.results <- data.frame(coef=fixef(marr_rand_int), 
+        odds_ratios=exp(fixef(marr_rand_int)),
+        se=se.fixef(marr_rand_int))
+(marr_rand_int.results <- round(marr_rand_int.results, 4))
+save(marr_rand_int, file="marr_rand_int.results.Rdata")
+write.csv(results.mixed, file="marr_rand_int.csv")
+.. ..

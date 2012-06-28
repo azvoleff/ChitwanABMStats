@@ -180,7 +180,10 @@ names(originNBH) <- gsub('migr', 'originNBH', names(originNBH))
 LDmigrations <- cbind(respid=row.names(LDmigrations), LDmigrations)
 indepvars <- cbind(hhreg[respid.col], hhreg[ethnic.col], hhreg[gender.col], originNBH, hhreg[age.cols][2:(length(age.cols)-MONTHS.AWAY+1)], hhreg[hhid.cols][2:(length(hhid.cols)-MONTHS.AWAY+1)])
 LDmigrations.wide <- merge(indepvars, LDmigrations, by="respid", all.x=F, all.y=T)
+# Need to order the data properly for it to be used in MLwiN
+LDmigrations.wide <- LDmigrations.wide[order(LDmigrations.wide$respid),]
 save(LDmigrations.wide, file=paste("migration_data_wideformat-", MONTHS.AWAY, "_months_away.Rdata", sep=""))
+write.csv(LDmigrations.wide, file=paste("migration_data_wideformat-", MONTHS.AWAY, "_months_away.csv", sep=""), row.names=FALSE)
 
 LDmig.migr.cols <- grep('^migr[0-9]*$', names(LDmigrations.wide))
 LDmig.age.cols <- grep('^age[0-9]*$', names(LDmigrations.wide))
@@ -194,4 +197,6 @@ LDmigrations.long <- reshape(LDmigrations.wide, idvar="respid",
                              v.names=c("migr", "age", "hhid", "originNBH"),
                              direction="long", sep="")
 LDmigrations.long <- LDmigrations.long[!is.na(LDmigrations.long$migr),]
+LDmigrations.long <- LDmigrations.long[order(LDmigrations.long$originNBH, LDmigrations.long$respid),]
 save(LDmigrations.long, file=paste("migration_data_longformat-", MONTHS.AWAY, "_months_away.Rdata", sep=""))
+write.csv(LDmigrations.long, file=paste("migration_data_longformat-", MONTHS.AWAY, "_months_away.csv", sep=""), row.names=FALSE)
