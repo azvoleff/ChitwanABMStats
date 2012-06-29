@@ -12,7 +12,7 @@ library(ggplot2)
 
 # Months.total is how many months of the household registry to include (max 
 # number of months is 126, so to include all the months set LAST.MONTH to 126).
-LAST.MONTH <- 60
+LAST.MONTH <- 126
 # Months.away is how many months a person needs to be away to be considered a 
 # migration
 MONTHS.AWAY <- 3
@@ -27,8 +27,10 @@ load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 # Drop columns if LAST.MONTH is < 126
 varying_cols <- grep('^[a-zA-Z]*[1-9][0-9]{0,2}$', names(hhreg))
 varying_cols_times <- as.numeric(gsub('[a-zA-Z]', '', names(hhreg)[varying_cols]))
-drop_cols <- varying_cols[varying_cols_times > LAST.MONTH]
-hhreg <- hhreg[-drop_cols]
+if (LAST.MONTH < max(varying_cols_times)) {
+    drop_cols <- varying_cols[varying_cols_times > LAST.MONTH]
+    hhreg <- hhreg[-drop_cols]
+}
 
 # First assemble from hhreg the migration outcomes for each month, leaving out 
 # any months after a move occurs.
@@ -199,12 +201,12 @@ save(LDmigrations.wide, file=paste("migration_data_wideformat-", MONTHS.AWAY, "_
 write.csv(LDmigrations.wide, file=paste("migration_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
 
 # Now in long format
-LDmig.migr.cols <- grep('^migr[0-9]*$', names(mig.dist))
-LDmig.age.cols <- grep('^age[0-9]*$', names(mig.dist))
-LDmig.hhid.cols <- grep('^hhid[0-9]*$', names(mig.dist))
-LDmig.originNBH.cols <- grep('^originNBH[0-9]*$', names(mig.dist))
+LDmig.migr.cols <- grep('^migr[0-9]*$', names(LDmigrations.wide))
+LDmig.age.cols <- grep('^age[0-9]*$', names(LDmigrations.wide))
+LDmig.hhid.cols <- grep('^hhid[0-9]*$', names(LDmigrations.wide))
+LDmig.originNBH.cols <- grep('^originNBH[0-9]*$', names(LDmigrations.wide))
 # Now construct the long-format dataset
-LDmigrations.long <- reshape(mig.dist, idvar="respid", 
+LDmigrations.long <- reshape(LDmigrations.wide, idvar="respid", 
                              varying=list(LDmig.migr.cols, LDmig.age.cols,
                                           LDmig.hhid.cols, 
                                           LDmig.originNBH.cols), 

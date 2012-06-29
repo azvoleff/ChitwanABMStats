@@ -1,7 +1,8 @@
 #!/usr/bin/env Rscript
 ###############################################################################
-# Calculates the percentage of men and percentage of women that move to their 
-# new spouses household.
+# Encodes marriage data, as right censored data. Only includes individuals 
+# present in 1996. Encodes wide and long format person-month dataset for later 
+# analysis with glmer and or MLwiN.
 ###############################################################################
 
 # Hmisc is needed as hhreg is a "labelled" dataframe. If Hmisc is nto included, 
@@ -9,9 +10,10 @@
 require(Hmisc)
 
 #load("/media/Local_Secure/CVFS_R_format/hhreg.Rdata")
-#load("T:/CVFS_R_format/hhreg.Rdata")
-load("/media/truecrypt5/Nepal/CVFS_R_format/hhreg.Rdata")
-load("/media/truecrypt5/Nepal/CVFS_R_format/t1_lulc.Rdata")
+print("Loading data...")
+load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+load("T:/CVFS_R_format/hhreg.Rdata")
+load("t1_lulc.Rdata")
 
 # Drop individuals younger than 15, and older than 20 as of 1996
 hhreg <- hhreg[!is.na(hhreg$agelt),]
