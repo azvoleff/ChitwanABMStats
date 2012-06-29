@@ -9,8 +9,9 @@
 require(Hmisc)
 
 #load("/media/Local_Secure/CVFS_R_format/hhreg.Rdata")
-load("T:/CVFS_R_format/hhreg.Rdata")
-load("t1_lulc.Rdata")
+#load("T:/CVFS_R_format/hhreg.Rdata")
+load("/media/truecrypt5/Nepal/CVFS_R_format/hhreg.Rdata")
+load("/media/truecrypt5/Nepal/CVFS_R_format/t1_lulc.Rdata")
 
 # Drop individuals younger than 15, and older than 20 as of 1996
 hhreg <- hhreg[!is.na(hhreg$agelt),]
@@ -94,7 +95,9 @@ save(marriages, file="marriage_times.Rdata")
 # Now process an event history dataset in person-months
 ###############################################################################
 # Censor data: add NAs for every month after the first marriage
+pb <- txtProgressBar(min=0, max=nrow(hhreg), style=3)
 for (rownum in 1:nrow(hhreg)) {
+    setTxtProgressBar(pb, rownum)
     for (colnum in maritcolumns[2:length(maritcolumns)]) {
         if (hhreg[rownum, colnum-1]==1 | is.na(hhreg[rownum, colnum-1])) {
             hhreg[rownum, colnum] <- NA
