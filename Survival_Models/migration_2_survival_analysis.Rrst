@@ -46,7 +46,7 @@ theme_update(theme_bw(base_size=10))
 #update_geom_defaults("line", aes(size=.75))
  
 #load("migration_data_wideformat-1_months_away.Rdata")
-load("migration_data_longformat-1_months_away.Rdata")
+load("migration_data_longformat-1_months_away-up_to_month_60.Rdata")
 
 # Eliminate the two rows that have FALSE instead of just 0/1 coding:
 LDmigrations.long <- LDmigrations.long[!(LDmigrations.long$migr==FALSE),]
@@ -70,8 +70,30 @@ LDmigrations.long$agegrp[LDmigrations.long$age>50] <- ">50"
 LDmigrations.long$agegrp <- factor(LDmigrations.long$agegrp)
 LDmigrations.long$time <- LDmigrations.long$time/120
 LDmigrations.long$agedecades <- LDmigrations.long$age/10
-with(LDmigrations.long, xtabs(migr ~ agegrp + ethnic + gender))
 xtabs(LDmigrations.long$migr ~ LDmigrations.long$agegrp)
+.. ..
+
+Basic Statistics
+===============================================================================
+
+Total number of person-month records: :r:`nrow(LDmigrations.long)`.
+
+First check how many migrations and censored entries. Then check a cross tab of migrations with the categorical predictors:
+.. {r basic_stats_xtab_covariates}
+table(LDmigrations.long$migr)
+with(LDmigrations.long, xtabs(migr ~ agegrp + ethnic + gender))
+.. ..
+
+Now check a cross tab of migrations with the origin neighborhhods:
+.. {r basic_stats_xtab_migr_nbh}
+with(LDmigrations.long, xtabs(migr ~ originNBH))
+.. ..
+
+Now check a cross tab of migrations with the origin neighborhhods:
+.. {r basic_stats_migr_ts}
+migr_ts <- with(LDmigrations.long, aggregate(migr, by=list(time*120), sum))
+names(migr_ts) <- c("hhreg_month_number", "number_of_migrants")
+qplot(hhreg_month_number, number_of_migrants, data=migr_ts)
 .. ..
 
 Run models
