@@ -132,7 +132,6 @@ num_LD_migrants_no_return <- sum((!is.na(LD_first_migration_col)) & is.na(DL_fir
 
 # Now code all cols after a LD migration as NA so they can be eliminated 
 # later (after reshaping to long format):
-
 print("Coding LD migration in wide format prior to long format reshape...")
 pb <- txtProgressBar(min=0, max=nrow(mig.dist), style=3)
 for (rownum in 1:nrow(mig.dist)) {
@@ -175,10 +174,6 @@ for (rownum in 1:nrow(mig.dist)) {
     mig.dist[rownum, na_cols] <- NA
 }
 
-# Add columns with ethnicity, age, sex, and hhid. Don't include the last 
-# MONTHS.AWAY cols of the age data, since we don't have migration data for 
-# those months.  Also, start from the second age col so it lines up with the 
-# place data.
 originNBH <- places[place0.cols]
 # First rename the originNBH columns using the names of the place1.cols - so 
 # the names will start out at "place2", (instead of "place1") and line up with 
@@ -192,7 +187,11 @@ mig.dist <- cbind(respid=row.names(mig.dist), mig.dist)
 ###############################################################################
 # Output the data
 ###############################################################################
-# First in wide format
+# First output in wide format
+
+# Add columns with ethnicity, age, sex, and hhid. Don't include the last 
+# MONTHS.AWAY cols of the age data, since we don't have migration data for 
+# those months.  Also, start from the second age col so it lines up with the 
 indepvars <- cbind(hhreg[respid.col], hhreg[ethnic.col], hhreg[gender.col], originNBH, hhreg[age.cols][2:(length(age.cols)-MONTHS.AWAY+1)], hhreg[hhid.cols][2:(length(hhid.cols)-MONTHS.AWAY+1)])
 LDmigrations.wide <- merge(indepvars, mig.dist, by="respid", all.x=F, all.y=T)
 # Need to order the data properly for it to be used in MLwiN

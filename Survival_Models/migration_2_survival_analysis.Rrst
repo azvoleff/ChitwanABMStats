@@ -2,6 +2,8 @@
 Migration Survival Analysis Code for the ChitwanABM
 ===============================================================================
 
+:Author: Alex Zvoleff
+
 Uses survival analysis to parameterize the ChitwanABM using data from the 
 Chitwan Valley Family Study.
 
@@ -9,27 +11,27 @@ Note the following regarding this source dataset, created from
 the migration_1_preprocess.R script:
 
     1) The data contains only respondents from the CVSF who were present in the 
-    dataset, in a "local" neighborhood in Chitwan in the first month of 1996.
+       dataset, in a "local" neighborhood in Chitwan in the first month of 1996.
 
     2) Only local to distant migrations are coded. A local to distant migration 
-    is defined as a person leaving the Chitwan Valley for a location outside 
-    the valley (regardless of whether they make a move within Nepal or 
-    internationally).
+       is defined as a person leaving the Chitwan Valley for a location outside 
+       the valley (regardless of whether they make a move within Nepal or 
+       internationally).
 
     3) Age, household ID, gender, and respondent ID are all coded from the CVFS 
-    data.
+       data.
 
     4) Only 126 months of data were available. Given that one months was used 
-    to define the minimum period away from a household to be considered a 
-    migrant, there were only 125 months of data to consider (as migrations 
-    cannot be conclusively determined within the last one month of data).
+       to define the minimum period away from a household to be considered a 
+       migrant, there were only 125 months of data to consider (as migrations 
+       cannot be conclusively determined within the last one month of data).
 
 Load the data and setup R
 ===============================================================================
 
 .. {r setup_reST_options, echo=FALSE}
 require(knitr)
-# Setup reST options:
+# Setup knitr options:
 options(width = 75)
 opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
     fig.width=4.5, fig.height=3, out.width='4.5in', out.height='3in', dpi=300, 
