@@ -4,18 +4,18 @@
 #     1) Local migration (from within WCV to within WCV)
 #     3) Distant out-migration (from WCV to outside WCV)
 #     2) Distant in-migration (from outside of WCV to WCV)
+# Treats LL, DL, DD, and LD migrations as competing risks. People are tracked 
+# only up until their first migration, after which they are considered censored 
+# (NA values inserted for remaining months of wide format).
 ###############################################################################
-# MONTHS.AWAY gives the number of months a person must be away for a move to be 
-# considered a migration.
 library(Hmisc)
 library(ggplot2)
-
 # Months.total is how many months of the household registry to include (max 
 # number of months is 126, so to include all the months set LAST.MONTH to 126).
-LAST.MONTH <- 126
-# Months.away is how many months a person needs to be away to be considered a 
-# migration
-MONTHS.AWAY <- 3
+LAST.MONTH <- 36
+# MONTHS.AWAY gives the number of months a person must be away for a move to be 
+# considered a migration.
+MONTHS.AWAY <- 1
 
 PLOT_WIDTH = 8.33
 PLOT_HEIGHT = 5.53
@@ -24,7 +24,7 @@ theme_update(theme_grey(base_size=18))
 
 print("Loading data...")
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
-# Drop columns if LAST.MONTH is < 126
+# Drop the appropriate monthly columns if LAST.MONTH is < 126
 varying_cols <- grep('^[a-zA-Z]*[1-9][0-9]{0,2}$', names(hhreg))
 varying_cols_times <- as.numeric(gsub('[a-zA-Z]', '', names(hhreg)[varying_cols]))
 if (LAST.MONTH < max(varying_cols_times)) {
@@ -32,38 +32,33 @@ if (LAST.MONTH < max(varying_cols_times)) {
     hhreg <- hhreg[-drop_cols]
 }
 
-# First assemble from hhreg the migration outcomes for each month, leaving out 
-# any months after a move occurs.
+# TODO: livng is not used now, but use it as a check on the place variable.
+# Use livng as a check on place columns. Recode it so 1 means in HH, 0 means 
+# away
+livng.cols <- grep('^livng[0-9]*$', names(hhreg))
+livng.recode <- hhreg[livng.cols]
+livng.recode[hhreg[livng.cols] == 1] <- 0 # Away from hh
+livng.recode[hhreg[livng.cols] == 2] <- 1 # Living in hh
+livng.recode[hhreg[livng.cols] == 3] <- NA # Died
+livng.recode[hhreg[livng.cols] == 4] <- 1 # New HH member not in orig census
+# TODO: Cleanup the recode of 5 to handle merge HHs
+livng.recode[hhreg[livng.cols] == 5] <- NA # HH merged with other sample HH
+livng.recode[hhreg[livng.cols] == 6] <- 0 # First month away
+
 place.cols <- grep('^place[0-9]*$', names(hhreg))
-places <- hhreg[place.cols]
-names(places) <- gsub('place', 'migr', names(places))
 age.cols <- grep('^age[0-9]*$', names(hhreg))
 hhid.cols <- grep('^hhid[0-9]*$', names(hhreg))
 ethnic.col <- grep('^ethnic$', names(hhreg))
 gender.col <- grep('^gender$', names(hhreg)) # 0=male, 1=female
 respid.col <- grep('^respid$', names(hhreg))
 
-# This function provides a mask to only consider people who migrate and then 
-# live in the same place for a certain number of months.
-stayedput.mask <- function(places, num.months) {
-    places.sum <- as.matrix(places)
-    # To find out if a person stayed in a particular place for longer than n 
-    # months, add together the place codes for month 0, month 1 ... month n, 
-    # storing the total in month 0. Then divide the total (in the month zero 
-    # location), by the original month 0 place code. If this equals one, it 
-    # means that the person stayed in the location in month 0 for at least n 
-    # months. Recode all other values to 0. The last n months should also be 
-    # coded 0, as there is insufficient data to know if a respondent remained 
-    # in the location for at least n months.
-    for (n in 1:(num.months)) {
-        places.sum <- places.sum[1:(ncol(places.sum) - n)] + places.sum[(n + 1):ncol(places.sum)]
-    } 
-    month1.place <- places[,1:(ncol(places)-num.months)]
-    places.sum <- places.sum / ((num.months+1)*month1.place)
-    places.array[places.array != 1] <- 0
-    return(places.array)
-}
-#stayedput <- stayedput.mask(places, MONTHS.AWAY)
+# Clean the data to convert unneeded missing value codes to NAs
+hhreg[hhid.cols][hhreg[hhid.cols]=="     A"] <- NA # Inappropriate code is A
+
+# First assemble from hhreg the migration outcomes for each month, leaving out 
+# any months after a move occurs.
+migr <- hhreg[place.cols]
+names(migr) <- gsub('place', 'migr', names(migr))
 
 # This function makes a mask to see, for a given point in time t, if a person 
 # EVER is found in that same neighborhood from time t+1 to time t+MIN where MIN
@@ -79,11 +74,7 @@ everreturn.mask <- function(places, num.months) {
     } 
     return(ever_return)
 }
-everreturn <- everreturn.mask(places, MONTHS.AWAY)
-
-# Setup place0 and place1 
-place0.cols <- 1:(length(place.cols)-MONTHS.AWAY)
-place1.cols <- 2:(length(place.cols)-MONTHS.AWAY+1)
+everreturn <- everreturn.mask(migr, MONTHS.AWAY)
 
 # No migration is PLACEn=PLACEn+1. A local to local migration is anything where 
 # the neighborhood ID changed from PLACEn to PLACEn+1, but the neighborhood ID 
@@ -91,98 +82,109 @@ place1.cols <- 2:(length(place.cols)-MONTHS.AWAY+1)
 # Months 1-126 correspond to February 1997 - June 2007.
 
 # Calculate local-> distant and distant-> local migrations only
-print("Calculating LD and DL migrations...")
-mig.type.dist <- places
-mig.type.dist[mig.type.dist<=502 & mig.type.dist > 1] <- 1 # local
-mig.type.dist[mig.type.dist>502] <- 2 # distant
-mig.dist <- mig.type.dist[place1.cols] - mig.type.dist[place0.cols]
-mig.dist[mig.dist==1] <- "DL"
-mig.dist[mig.dist==-1] <- "LD"
-mig.dist[mig.dist==0] <- F
-mig.dist[everreturn] <- F
-row.names(mig.dist) <- hhreg$respid
+print("Calculating migrations...")
+place0.cols <- 1:(length(place.cols)-MONTHS.AWAY)
+place1.cols <- 2:(length(place.cols)-MONTHS.AWAY+1)
 
-# Eliminate people who were not there at beginning of 1996.
-mig.dist <- mig.dist[!is.na(mig.dist[,1]),]
+# First setup mig.type as a matrix of NAs. "NM"s will fill each cell where 
+# there is data for that person for that month (NM=no migration), and NAs fill 
+# all other cells. NM values will be reassigned to migration indicators (LL, 
+# LD, DL, DD) as necessary in the next few blocks of code.
+mig.type <- is.na(migr[,2:ncol(migr),])
+mig.type[mig.type==TRUE] <- NA
+mig.type[mig.type==FALSE] <- "NM"
+row.names(mig.type) <- hhreg$respid
 
-# Eliminate people who migrated in (from distant) before migrating out - we 
-# want only people migrating out of Chitwan as their first migration.
-DL_migration_col <- apply(mig.dist, 1, function(x) match("DL", x, nomatch=NA))
-LD_migration_col <- apply(mig.dist, 1, function(x) match("LD", x, nomatch=NA))
-mig.dist.test <- mig.dist[-which(DL_migration_col < LD_migration_col),]
+# Now code the migration type in mig.type as:
+# LL = Local-local
+# DL = Distant-local
+# LD = Local-distant
+# DD = Distant-distant
+# NM = No migration
+
+# First do DL and LD:
+mig.DLLD <- migr
+mig.DLLD[migr > 1 & migr <= 502] <- 1 # local
+mig.DLLD[migr > 502] <- 2 # distant
+mig.DLLD <- mig.DLLD[place0.cols] - mig.DLLD[place1.cols]
+mig.DLLD[mig.DLLD==1] <- "DL"
+mig.DLLD[mig.DLLD==0] <- NA # No migration
+mig.DLLD[mig.DLLD==-1] <- "LD"
+mig.DLLD[everreturn] <- NA
+mig.type[mig.DLLD=="DL"] <- "DL"
+mig.type[mig.DLLD=="LD"] <- "LD"
+
+# Now do DD:
+mig.DD <- migr
+mig.DD[migr > 1 & migr <= 502] <- NA # Ignore local
+mig.DD <- mig.DD[place0.cols] - mig.DD[place1.cols]
+mig.DD[mig.DD!=1] <- "DD"
+mig.DD[mig.DD==0] <- NA # No migration
+mig.DD[everreturn] <- NA
+mig.type[mig.DD=="DD"] <- "DD"
+
+# Now do LL:
+mig.LL <- migr
+mig.LL[migr > 502] <-  NA # Ignore distant
+mig.LL <- mig.LL[place0.cols] - mig.LL[place1.cols]
+mig.LL[mig.LL!=1] <- "LL"
+mig.LL[mig.LL==0] <- NA # No migration
+mig.LL[everreturn] <- NA
+mig.type[mig.LL=="LL"] <- "LL"
 
 # Code and plot the average amount of time people are gone for.
-LD_first_migration_col <- apply(mig.dist, 1, function(x) match("LD", x, nomatch=NA))
-DL_first_migration_col <- apply(mig.dist, 1, function(x) match("DL", x, nomatch=NA))
-time_outside <- LD_first_migration_col - DL_first_migration_col
+#LD_first_migration_col <- apply(mig.type, 1, function(x) match("LD", x, nomatch=NA))
+#DL_first_migration_col <- apply(mig.type, 1, function(x) match("DL", x, nomatch=NA))
+#time_outside <- LD_first_migration_col - DL_first_migration_col
 #mean(time_outside, na.rm=T)
-qplot(time_outside[time_outside<36], geom="histogram", xlab="Months Away", 
-      ylab="Count", binwidth=3)
-ggsave(paste("time_outside-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".png", sep=""), 
-       width=PLOT_WIDTH, height=PLOT_HEIGHT, dpi=DPI)
-save(time_outside, file=paste("time_outside-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
+#qplot(time_outside[time_outside<36], geom="histogram", xlab="Months Away", 
+#      ylab="Count", binwidth=3)
+#ggsave(paste("data/time_outside-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".png", sep=""), 
+#       width=PLOT_WIDTH, height=PLOT_HEIGHT, dpi=DPI)
+#save(time_outside, file=paste("data/time_outside-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
 
 # Find total number of LD migrations:
-num_LD_migrants <- sum((!is.na(LD_first_migration_col)), na.rm=T)
+#num_LD_migrants <- sum((!is.na(LD_first_migration_col)), na.rm=T)
 # Find number of migrants who did not return:
-num_LD_migrants_no_return <- sum((!is.na(LD_first_migration_col)) & is.na(DL_first_migration_col), na.rm=T)
-(num_LD_migrants_no_return / num_LD_migrants)*100
+#num_LD_migrants_no_return <- sum((!is.na(LD_first_migration_col)) & is.na(DL_first_migration_col), na.rm=T)
+#(num_LD_migrants_no_return / num_LD_migrants)*100
 # So have 1569 migrants in total over the 120 month period. 7.90% make an LD 
 # migration and then do not return.
 
-# Now code all cols after a LD migration as NA so they can be eliminated 
-# later (after reshaping to long format):
-print("Coding LD migration in wide format prior to long format reshape...")
-pb <- txtProgressBar(min=0, max=nrow(mig.dist), style=3)
-for (rownum in 1:nrow(mig.dist)) {
-    setTxtProgressBar(pb, rownum)
-    # Store NA values as we have to avoid coding columns with a 0 or 1 if they 
-    # are already NA, as these are columns where we have no data on an 
-    # individual.
-    na_cols <- is.na(mig.dist[rownum,])
-    mig_col <- LD_first_migration_col[rownum]
-    col.migration <- mig_col
-    if (is.na(col.migration)) {
-        # If there was no migration in this row, code all the columns as 0
-        mig.dist[rownum, 1:ncol(mig.dist)] <- 0
-        # And make sure NAs are retained:
-        mig.dist[rownum, na_cols] <- NA
-        next
+# Now eliminate people who not there AND local at beginning of 1996.
+local_in_t0 <- (migr[,1] > 1) & (migr[,1] <= 502)
+local_in_t0[is.na(local_in_t0)] <- FALSE
+mig.type <- mig.type[local_in_t0,]
+# Now censor the data by finding the first migration activity in each row, and 
+# setting every cell in the row after that one to NA. Also censor every cell in 
+# a row after the first NA in that row. The min(!is.na below is necessary to 
+# find the first match of any type of migration.
+print("Censoring data...")
+censor_data <- function(record) {
+    first_migr_column <- match(c('DL', 'LD', 'DD', 'LL'), record)
+    first_migr_column <- min(first_migr_column[!is.na(first_migr_column)])
+    first_migr_column[is.infinite(first_migr_column)] <- NA
+    first_NA_column <- apply(mig.type, 1, function(x) match(TRUE, is.na(x)))
+    if (is.na(first_migr_column) && is.na(first_NA_column)) {
+        return(record)
     }
-    # In the case of migrations that occurred in the first col, the 
-    # assignment below will be wrong. This will be fixed in a few lines as 
-    # migrations are coded after this statement (which will overwrite this 
-    # value if it is incorrect).
-    cols.premigration <- 1:(mig_col)
-    # Add 1 for the postmigration columns so that we don't overwrite the respid 
-    # column or the migration col itself:
-    if (mig_col+1 >= ncol(mig.dist)) {
-        # Catch a migration that occurred in the last col. In this case there 
-        # are no post-migration cols.
-        cols.postmigration <- c()
-    } else {
-        cols.postmigration <- (mig_col+1):ncol(mig.dist)
+    else if (is.na(first_NA_column) | first_migr_column <= first_NA_column) {
+             first_censored_col <- first_migr_column + 1
     }
-    # Code the cols preceding the LD migration as 0
-    mig.dist[rownum, cols.premigration] <- 0
-    # Code the remaining cols after the LD migration as NA
-    mig.dist[rownum, cols.postmigration] <- NA
-    # Code the LD migration as 1 (do this last as otherwise the cols 
-    # preceding code will overwrite it due to R's annoying indexing).
-    mig.dist[rownum, col.migration] <- 1
-    # Also code cols where we have no data on the respondent as NA
-    mig.dist[rownum, na_cols] <- NA
+    else {
+        first_censored_col <- first_NA_column
+    }
+    if (first_censored_col < length(record)) {
+        record[first_censored_col:length(record)] <- NA
+    }
+    return(record)
 }
+mig.type <- t(apply(mig.type, 1, censor_data))
+# Add a respid column to mig.type dataframe (row.names were assigned earlier 
+# for this dataframe).
+mig.type <- cbind(respid=row.names(mig.type), mig.type)
 
-originNBH <- places[place0.cols]
-# First rename the originNBH columns using the names of the place1.cols - so 
-# the names will start out at "place2", (instead of "place1") and line up with 
-# the names of the age and migration outcome columns.
-names(originNBH) <- names(places[place1.cols])
-names(originNBH) <- gsub('migr', 'originNBH', names(originNBH))
-# Add a respid column to mig.dist dataframe (row.names were assigned 
-# earlier for this dataframe).
-mig.dist <- cbind(respid=row.names(mig.dist), mig.dist)
+originNBH <- migr$migr1
 
 ###############################################################################
 # Output the data
@@ -193,25 +195,23 @@ mig.dist <- cbind(respid=row.names(mig.dist), mig.dist)
 # MONTHS.AWAY cols of the age data, since we don't have migration data for 
 # those months.  Also, start from the second age col so it lines up with the 
 indepvars <- cbind(hhreg[respid.col], hhreg[ethnic.col], hhreg[gender.col], originNBH, hhreg[age.cols][2:(length(age.cols)-MONTHS.AWAY+1)], hhreg[hhid.cols][2:(length(hhid.cols)-MONTHS.AWAY+1)])
-LDmigrations.wide <- merge(indepvars, mig.dist, by="respid", all.x=F, all.y=T)
+LDmigrations.wide <- merge(indepvars, mig.type, by="respid", all.x=F, all.y=T)
 # Need to order the data properly for it to be used in MLwiN
 LDmigrations.wide <- LDmigrations.wide[order(LDmigrations.wide$respid),]
-save(LDmigrations.wide, file=paste("migration_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
-write.csv(LDmigrations.wide, file=paste("migration_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
+save(LDmigrations.wide, file=paste("data/migration_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
+write.csv(LDmigrations.wide, file=paste("data/migration_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
 
 # Now in long format
 LDmig.migr.cols <- grep('^migr[0-9]*$', names(LDmigrations.wide))
 LDmig.age.cols <- grep('^age[0-9]*$', names(LDmigrations.wide))
 LDmig.hhid.cols <- grep('^hhid[0-9]*$', names(LDmigrations.wide))
-LDmig.originNBH.cols <- grep('^originNBH[0-9]*$', names(LDmigrations.wide))
 # Now construct the long-format dataset
 LDmigrations.long <- reshape(LDmigrations.wide, idvar="respid", 
                              varying=list(LDmig.migr.cols, LDmig.age.cols,
-                                          LDmig.hhid.cols, 
-                                          LDmig.originNBH.cols), 
-                             v.names=c("migr", "age", "hhid", "originNBH"),
+                                          LDmig.hhid.cols), 
+                             v.names=c("migr", "age", "hhid"),
                              direction="long", sep="")
 LDmigrations.long <- LDmigrations.long[!is.na(LDmigrations.long$migr),]
 LDmigrations.long <- LDmigrations.long[order(LDmigrations.long$originNBH, LDmigrations.long$respid),]
-save(LDmigrations.long, file=paste("migration_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
-write.csv(LDmigrations.long, file=paste("migration_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
+save(LDmigrations.long, file=paste("data/migration_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
+write.csv(LDmigrations.long, file=paste("data/migration_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)

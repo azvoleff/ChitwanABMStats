@@ -35,7 +35,7 @@ require(knitr)
 options(width = 75)
 opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
     fig.width=4.5, fig.height=3, out.width='4.5in', out.height='3in', dpi=300, 
-    dev='pdf', comment=NA)
+    dev='pdf')
 .. ..
 
 .. {r setup, results='hide', messages=FALSE}
@@ -47,12 +47,10 @@ theme_update(theme_bw(base_size=10))
 #update_geom_defaults("point", aes(size=2))
 #update_geom_defaults("line", aes(size=.75))
  
-#load("migration_data_wideformat-1_months_away.Rdata")
-load("migration_data_longformat-1_months_away-up_to_month_60.Rdata")
+#load("data/migration_data_wideformat-1_months_away.Rdata")
+load("data/migration_data_longformat-1_months_away-up_to_month_60.Rdata")
+load("data/migration_data_longformat-1_months_away-up_to_month_36.Rdata")
 
-# Eliminate the two rows that have FALSE instead of just 0/1 coding:
-LDmigrations.long <- LDmigrations.long[!(LDmigrations.long$migr==FALSE),]
-LDmigrations.long$migr <- as.numeric(LDmigrations.long$migr)
 # Recode "other" ethnicity to Terai tibeto-burmese
 LDmigrations.long$ethnic[LDmigrations.long$ethnic==6] <- 5
 LDmigrations.long$ethnic <- as.factor(LDmigrations.long$ethnic)
@@ -72,7 +70,6 @@ LDmigrations.long$agegrp[LDmigrations.long$age>50] <- ">50"
 LDmigrations.long$agegrp <- factor(LDmigrations.long$agegrp)
 LDmigrations.long$time <- LDmigrations.long$time/120
 LDmigrations.long$agedecades <- LDmigrations.long$age/10
-xtabs(LDmigrations.long$migr ~ LDmigrations.long$agegrp)
 .. ..
 
 Basic Statistics
@@ -82,20 +79,32 @@ Total number of person-month records: :r:`nrow(LDmigrations.long)`.
 
 First check how many migrations and censored entries. Then check a cross tab of migrations with the categorical predictors:
 .. {r basic_stats_xtab_covariates}
-table(LDmigrations.long$migr)
-with(LDmigrations.long, xtabs(migr ~ agegrp + ethnic + gender))
+table(LDmigrations.long$migr, exclude=NULL)
+xtabs(~ LDmigrations.long$migr + LDmigrations.long$agegrp, exclude=NULL)
+xtabs(~ LDmigrations.long$migr + LDmigrations.long$ethnic, exclude=NULL)
+xtabs(~ LDmigrations.long$migr + LDmigrations.long$gender, exclude=NULL)
+with(LDmigrations.long, xtabs(~ agegrp + ethnic + gender, exclude=NULL))
 .. ..
 
-Now check a cross tab of migrations with the origin neighborhhods:
-.. {r basic_stats_xtab_migr_nbh}
-with(LDmigrations.long, xtabs(migr ~ originNBH))
-.. ..
+.. Now check a cross tab of migrations with the origin neighborhhods:
+   .. {r basic_stats_xtab_migr_nbh}
+   with(LDmigrations.long, xtabs(~ migr + originNBH, exclude=NULL))
+   .. ..
 
-Now check a cross tab of migrations with the origin neighborhhods:
-.. {r basic_stats_migr_ts}
+And look at the number of migrations per time (censoring after 1st migration).
+.. {r basic_stats_migr_ts, fig.cap='Migrations per month (censored)'}
 migr_ts <- with(LDmigrations.long, aggregate(migr, by=list(time*120), sum))
 names(migr_ts) <- c("hhreg_month_number", "number_of_migrants")
-qplot(hhreg_month_number, number_of_migrants, data=migr_ts)
+qplot(LDmigrations.long$time, migr, colour=migr, stat="summary", fun.y="sum", geom="line", data=LDmigrations.long)
+.. ..
+
+Now setup the migration coding - eliminate LL and DL migrations, and set LD 
+(local-distant) to 1 and NM (no migration) to 0.
+.. {r migration-recode}
+LDmigrations.long[LDmigrations.long=="LL"] <- NA
+LDmigrations.long[LDmigrations.long=="DL"] <- NA
+LDmigrations.long[LDmigrations.long=="NM"] <- 0
+LDmigrations.long[LDmigrations.long=="LD"] <- 1
 .. ..
 
 Run models
@@ -144,31 +153,31 @@ save(LD_random_int_2level, file="migration_LD_random_int_2level.Rdata")
 Mixed-effects model - random intercept at neighborhood level (continous age in decades)
 _______________________________________________________________________________________
 .. {r LD_random_int_contage}
-LD_random_int_contage <- glmer(migr ~ ethnic + gender + agedecades + time + I(time**2) +
-                            (1 | originNBH), data=LDmigrations.long, 
-                            family=binomial, verbose=TRUE)
-LD_random_int_contage.results <- data.frame(coef=fixef(LD_random_int_contage),
-    odds_ratio=exp(fixef(LD_random_int_contage)), se=se.fixef(LD_random_int_contage))
-LD_random_int_contage.results <- round(LD_random_int_contage.results, 4)
-summary(LD_random_int_contage)
-save(LD_random_int_contage, file="migration_LD_random_int_contage.Rdata")
-LD_random_int_contage.results
+#LD_random_int_contage <- glmer(migr ~ ethnic + gender + agedecades + time + I(time**2) +
+#                            (1 | originNBH), data=LDmigrations.long, 
+#                            family=binomial, verbose=TRUE)
+#LD_random_int_contage.results <- data.frame(coef=fixef(LD_random_int_contage),
+#    odds_ratio=exp(fixef(LD_random_int_contage)), se=se.fixef(LD_random_int_contage))
+#LD_random_int_contage.results <- round(LD_random_int_contage.results, 4)
+#summary(LD_random_int_contage)
+#save(LD_random_int_contage, file="migration_LD_random_int_contage.Rdata")
+#LD_random_int_contage.results
 .. ..
 
 Mixed-effects model - random intercepts at individual and neighborhood level (continous age in decades)
 _______________________________________________________________________________________________________
 
 .. {r LD_random_int_contage_2level}
-LD_random_int_contage_2level <- glmer(migr ~ ethnic + gender + agedecades + 
-                                time + I(time**2) + (1 | respid) +
-                                (1 | originNBH), data=LDmigrations.long, 
-                                family=binomial, verbose=TRUE)
-LD_random_int_contage_2level.results <- data.frame(coef=fixef(LD_random_int_contage_2level),
-    odds_ratio=exp(fixef(LD_random_int_contage_2level)), se=se.fixef(LD_random_int_contage_2level))
-LD_random_int_contage_2level.results <- round(LD_random_int_contage_2level.results, 4)
-summary(LD_random_int_contage_2level)
-LD_random_int_contage_2level.results
-save(LD_random_int_contage_2level, file="migration_LD_random_int_contage_2level.Rdata")
+#LD_random_int_contage_2level <- glmer(migr ~ ethnic + gender + agedecades + 
+#                                time + I(time**2) + (1 | respid) +
+#                                (1 | originNBH), data=LDmigrations.long, 
+#                                family=binomial, verbose=TRUE)
+#LD_random_int_contage_2level.results <- data.frame(coef=fixef(LD_random_int_contage_2level),
+#    odds_ratio=exp(fixef(LD_random_int_contage_2level)), se=se.fixef(LD_random_int_contage_2level))
+#LD_random_int_contage_2level.results <- round(LD_random_int_contage_2level.results, 4)
+#summary(LD_random_int_contage_2level)
+#LD_random_int_contage_2level.results
+#save(LD_random_int_contage_2level, file="migration_LD_random_int_contage_2level.Rdata")
 .. ..
 
 
