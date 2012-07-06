@@ -1,0 +1,69 @@
+library(ggplot2)
+library(rms) # Note 'Design' package was renamed to "rms"
+library(foreign)
+
+theme_update(theme_grey(base_size=18))
+update_geom_defaults("smooth", aes(size=1))
+update_geom_defaults("line", aes(size=1))
+DPI <- 300
+WIDTH <- 9
+HEIGHT <- 5.67
+
+lu <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
+land.agveg <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
+land.nonagveg <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
+land.privbldg <- with(lu, rowSums(cbind(HHRESID1, MILL1, OTRBLD1)))
+land.pubbldg <- with(lu, rowSums(cbind(ROAD1, SCHOOL1, TEMPLE1)))
+land.other <- with(lu, rowSums(cbind(CANAL1, POND1, RIVER1, SILT1, UNDVP1)))
+lu.processed <- data.frame(NEIGHID=lu$NEIGHID, land.agveg, land.nonagveg, land.privbldg, land.pubbldg, land.other)
+# Convert land areas expressed in square feet to square meters
+lu.processed[2:6]  <- lu.processed[2:6] * .09290304
+lu.processed$NEIGHID <- as.numeric(lu.processed$NEIGHID)
+lu.processed$land.total <- apply(lu.processed[2:6], 1, sum)
+percagveg <- with(lu.processed, data.frame(neighid=NEIGHID, percagveg=(land.agveg/land.total)*100))
+percagveg$log_percagveg <- log(percagveg$percagveg + 1)
+
+# Read in the household registry data to get the ethnicities
+load("V:/Nepal/CVFS_R_format/hhreg.Rdata")
+columns <- grep('^(respid|ethnic)$', names(hhreg))
+hhreg <- hhreg[columns]
+hhreg$ethnic[hhreg$ethnic== 1] <- "HighHindu"
+hhreg$ethnic[hhreg$ethnic== 2] <- "HillTibeto"
+hhreg$ethnic[hhreg$ethnic== 3] <- "LowHindu"
+hhreg$ethnic[hhreg$ethnic== 4] <- "Newar"
+hhreg$ethnic[hhreg$ethnic== 5] <- "TeraiTibeto"
+hhreg$ethnic[hhreg$ethnic== 6] <- "Other"
+hhreg$ethnic <- factor(hhreg$ethnic)
+
+# Read in t1 individual interview data to get years of schooling, age, gender, 
+# etc.
+t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+educdata <- with(t1indiv, data.frame(respid=RESPID, neighid=NEIGHID, schooling=A1, age=RESPAGE, gender=GENDER))
+
+educdata <- merge(educdata, hhreg)
+educdata <- merge(educdata, percagveg)
+educdata <- educdata[educdata$age >= 25 &  educdata$age <= 30,]
+
+# Run some basic stats:
+with(educdata, xtabs(~age + schooling))
+with(educdata, xtabs(~schooling + gender))
+with(educdata, xtabs(~schooling + ethnic))
+
+# Add a categorical years of schooling variable
+educdata$schooling_cat <- educdata$schooling
+educdata$schooling_cat[educdata$schooling == 0] <- 'eq0'
+educdata$schooling_cat[educdata$schooling > 0 & educdata$schooling <= 4] <- 'gt0lt4'
+educdata$schooling_cat[educdata$schooling > 4 & educdata$schooling <= 8] <- 'gt4lt8'
+educdata$schooling_cat[educdata$schooling > 8 & educdata$schooling <= 11] <- 'gt8lt11'
+educdata$schooling_cat[educdata$schooling > 11] <- 'gt11'
+educdata$schooling_cat <- factor(educdata$schooling_cat, levels=c('eq0', 'gt0lt4', 'gt4lt8', 'gt8lt11', 'gt11'), ordered=TRUE)
+
+table(educdata$schooling_cat)
+with(educdata, xtabs(~schooling_cat + age))
+
+educdata <- educdata[complete.cases(educdata),]
+
+educdata_dist <- with(educdata, datadist(gender, ethnic, log_percagveg))
+options(datadist='educdata_dist')
+lrm_schooling_cat <- lrm(schooling_cat ~ gender + ethnic + log_percagveg, data=educdata)
+write.csv(summary(lrm_schooling_cat), file="lrm_schooling_cat.csv")
