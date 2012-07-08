@@ -8,27 +8,29 @@
 # only up until their first migration, after which they are considered censored 
 # (NA values inserted for remaining months of wide format).
 ###############################################################################
+
+library(ggplot2)
 library(Hmisc)
+
 #theme_update(theme_grey(base_size=10))
 theme_update(theme_bw(base_size=10))
 #update_geom_defaults("point", aes(size=2))
 #update_geom_defaults("line", aes(size=.75))
-library(ggplot2)
 
 update_geom_defaults("line", aes(size=1))
 update_geom_defaults("smooth", aes(size=1))
 theme_update(theme_grey(base_size=24))
 update_geom_defaults("point", aes(size=3))
 DPI <- 300
-WIDTH <- 9
-HEIGHT <- 5.67
+PLOT_WIDTH <- 9
+PLOT_HEIGHT <- 5.67
 
 # Months.total is how many months of the household registry to include (max 
 # number of months is 126, so to include all the months set LAST.MONTH to 126).
 LAST.MONTH <- 36
 # MONTHS.AWAY gives the number of months a person must be away for a move to be 
 # considered a migration.
-MONTHS.AWAY <- 3
+MONTHS.AWAY <- 1
 
 print("Loading data...")
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
@@ -215,23 +217,23 @@ print("Outputting censored data...")
 # First output in wide format
 
 # Add columns with originNBH, ethnicity, age, sex, and hhid.
-LDmigrations.wide <- merge(indepvars, mig.type, by="respid", all.x=F, all.y=T)
+migrations.wide <- merge(indepvars, mig.type, by="respid", all.x=F, all.y=T)
 # Need to order the data properly for it to be used in MLwiN
-LDmigrations.wide <- LDmigrations.wide[order(LDmigrations.wide$respid),]
-save(LDmigrations.wide, file=paste("data/migration_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
-write.csv(LDmigrations.wide, file=paste("data/migration_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
+migrations.wide <- migrations.wide[order(migrations.wide$respid),]
+save(migrations.wide, file=paste("data/migration_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
+write.csv(migrations.wide, file=paste("data/migration_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
 
 # Now in long format
-LDmig.migr.cols <- grep('^migr[0-9]*$', names(LDmigrations.wide))
-LDmig.age.cols <- grep('^age[0-9]*$', names(LDmigrations.wide))
-LDmig.hhid.cols <- grep('^hhid[0-9]*$', names(LDmigrations.wide))
+migr.cols <- grep('^migr[0-9]*$', names(migrations.wide))
+age.cols <- grep('^age[0-9]*$', names(migrations.wide))
+hhid.cols <- grep('^hhid[0-9]*$', names(migrations.wide))
 # Now construct the long-format dataset
-LDmigrations.long <- reshape(LDmigrations.wide, idvar="respid", 
-                             varying=list(LDmig.migr.cols, LDmig.age.cols,
-                                          LDmig.hhid.cols), 
+migrations.long <- reshape(migrations.wide, idvar="respid", 
+                             varying=list(migr.cols, age.cols,
+                                          hhid.cols), 
                              v.names=c("migr", "age", "hhid"),
                              direction="long", sep="")
-LDmigrations.long <- LDmigrations.long[!is.na(LDmigrations.long$migr),]
-LDmigrations.long <- LDmigrations.long[order(LDmigrations.long$originNBH, LDmigrations.long$respid),]
-save(LDmigrations.long, file=paste("data/migration_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
-write.csv(LDmigrations.long, file=paste("data/migration_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
+migrations.long <- migrations.long[!is.na(migrations.long$migr),]
+migrations.long <- migrations.long[order(migrations.long$originNBH, migrations.long$respid),]
+save(migrations.long, file=paste("data/migration_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
+write.csv(migrations.long, file=paste("data/migration_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
