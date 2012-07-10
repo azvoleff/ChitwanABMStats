@@ -7,6 +7,12 @@
 # Treats LL, DL, DD, and LD migrations as competing risks. People are tracked 
 # only up until their first migration, after which they are considered censored 
 # (NA values inserted for remaining months of wide format).
+#
+# Follows analysis of Massey et al. 2010:
+#     Massey, D. S., W. G. Axinn, and D. J. Ghimire. 2010. Environmental change 
+#     and out-migration: evidence from Nepal. Population and Environment. (last 
+#     accessed 16 September 2010).
+#     
 ###############################################################################
 
 library(ggplot2)
@@ -58,9 +64,10 @@ livng.recode[hhreg[livng.cols] == 6] <- 0 # First month away
 place.cols <- grep('^place[0-9]*$', names(hhreg))
 age.cols <- grep('^age[0-9]*$', names(hhreg))
 hhid.cols <- grep('^hhid[0-9]*$', names(hhreg))
-ethnic.col <- grep('^ethnic$', names(hhreg))
-gender.col <- grep('^gender$', names(hhreg)) # 0=male, 1=female
-respid.col <- grep('^respid$', names(hhreg))
+
+hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
+hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
+        "HillTibeto", "LowHindu", "Newar", "TeraiTibeto", "Other"))
 
 # Clean the data to convert unneeded missing value codes to NAs
 hhreg[hhid.cols][hhreg[hhid.cols]=="     A"] <- NA # Inappropriate code is A
@@ -168,7 +175,7 @@ local_in_t0[is.na(local_in_t0)] <- FALSE
 mig.type <- mig.type[local_in_t0,]
 # Save the variables that will be needed later as independent variables, 
 # including the originNBH for each person, and some other covariates.
-indepvars <- cbind(hhreg[respid.col], originNBH=places$place1, hhreg[ethnic.col], hhreg[gender.col], hhreg[age.cols][2:(length(age.cols)-MONTHS.AWAY+1)], hhreg[hhid.cols][2:(length(hhid.cols)-MONTHS.AWAY+1)])
+indepvars <- cbind(hhreg$respid, originNBH=places$place1, hhreg$ethnic, hhreg$gender, hhreg[age.cols][2:(length(age.cols)-MONTHS.AWAY+1)], hhreg[hhid.cols][2:(length(hhid.cols)-MONTHS.AWAY+1)])
 indepvars <- indepvars[local_in_t0,]
 # Now censor the data by finding the first migration activity in each row, and 
 # setting every cell in the row after that one to NA. Also censor every cell in 
