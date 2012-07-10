@@ -1,0 +1,54 @@
+=================================================================================
+Distribution of Ethnicity in Month One (1996) of the CVFS Household Registry Data
+=================================================================================
+
+:Author: Alex Zvoleff
+:Email: azvoleff@mail.sdsu.edu
+:Date: July, 2012
+
+Uses discrete time event history analysis to parameterize the ChitwanABM using 
+data from the Chitwan Valley Family Study.
+
+Load the data and setup R
+===============================================================================
+
+.. {r setup_reST_options, echo=FALSE}
+library(knitr)
+# Setup knitr options:
+options(width = 75)
+opts_chunk$set(fig.path='rst-figure/', fig.width=4.5, fig.height=3, 
+        out.width='4.5in', out.height='3in', dpi=300, dev='pdf')
+.. ..
+
+.. {r setup, results='hide', messages=FALSE}
+library(ggplot2)
+library(Hmisc)
+
+#theme_update(theme_grey(base_size=10))
+theme_update(theme_bw(base_size=10))
+#update_geom_defaults("point", aes(size=2))
+#update_geom_defaults("line", aes(size=.75))
+
+# Read in the household registry data to get the ethnicities
+load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+columns <- grep('^(respid|hhid1|place1|ethnic|gender)$', names(hhreg))
+hhreg <- hhreg[,columns]
+hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
+        "HillTibeto", "LowHindu", "Newar", "TeraiTibeto", "Other"))
+hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
+names(hhreg)[names(hhreg)=="place1"] <- "neighid"
+names(hhreg)[names(hhreg)=="hhid1"] <- "hhid"
+
+hhreg <- hhreg[(hhreg$neighid >= 1) & (hhreg$neighid <= 502) & !is.na(hhreg$neighid),]
+.. ..
+
+First look at the distribution in tabular format:
+.. {r ethnicity-table}
+table(hhreg$ethnic, exclude=NULL)
+xtabs(~ethnic + gender, data=hhreg, exclude=NULL)
+.. ..
+
+Now make a bar plot of the distribution:
+.. {r ethnicity-plot, fig.cap="Ethnicity Distribution in Chitwan in 1996"}
+qplot(ethnic, facets=gender~., geom="bar", data=hhreg)
+.. ..
