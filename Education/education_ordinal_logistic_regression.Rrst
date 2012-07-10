@@ -5,6 +5,10 @@ Education Ordinal Logistic Regression
 :Author: Alex Zvoleff
 :Date: July, 2012
 
+Runs an ordinal logistic regression to be used in the ChitwanABM to set the 
+years of education of each agent, based on their attributes, during each model 
+run.
+
 .. {r setup_reST_options, echo=FALSE, cache=FALSE}
 require(knitr)
 # Setup knitr options:
@@ -47,27 +51,36 @@ percagveg <- with(lu.processed, data.frame(neighid=NEIGHID, percagveg=(land.agve
 percagveg$log_percagveg <- log(percagveg$percagveg + 1)
 
 # Read in the household registry data to get the ethnicities
-load("V:/Nepal/CVFS_R_format/hhreg.Rdata")
+load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 columns <- grep('^(respid|ethnic)$', names(hhreg))
 hhreg <- hhreg[columns]
-hhreg$ethnic[hhreg$ethnic == 1] <- "HighHindu"
-hhreg$ethnic[hhreg$ethnic == 2] <- "HillTibeto"
-hhreg$ethnic[hhreg$ethnic == 3] <- "LowHindu"
-hhreg$ethnic[hhreg$ethnic == 4] <- "Newar"
-hhreg$ethnic[hhreg$ethnic == 5] <- "TeraiTibeto"
-hhreg$ethnic[hhreg$ethnic == 6] <- "Other"
+
+hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
+        "HillTibeto", "LowHindu", "Newar", "TeraiTibeto", "Other"))
+# Drop "other" ethnicity for consistency with Massey et al. (2010)
+hhreg <- hhreg[!(hhreg$ethnic=="Other"),]
 hhreg$ethnic <- factor(hhreg$ethnic)
 
 # Read in t1 individual interview data to get years of schooling, age, gender, 
 # etc.
 t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+# To merge with the hhreg data, need to convert the old format respondent ID 
+# (NNNHHSS) (where NNN is NBH ID, HH is household ID, and SS is subject ID) to 
+# NNNHHHSSS:
+old_respID <- sprintf("%07i", t1indiv$RESPID)
+NBHID <- sprintf("%03i", as.numeric(substr(old_respID,1,3)))
+HHID <- sprintf("%03i", as.numeric(substr(old_respID,4,5)))
+SUBJID <- sprintf("%03i", as.numeric(substr(old_respID,6,7)))
+t1indiv$RESPID <- paste(NBHID, HHID, SUBJID, sep="")
+
 educdata <- with(t1indiv, data.frame(respid=RESPID, neighid=NEIGHID, schooling=A1, age=RESPAGE, gender=GENDER, mother_school=I7, father_school=I11))
+educdata$gender <- factor(educdata$gender, labels=c("male", "female"))
 
 # Eliminate missing value codes:
 educdata$mother_school[educdata$mother_school < 0] <- NA
 educdata$father_school[educdata$father_school < 0] <- NA
 
-educdata <- merge(educdata, hhreg)
+educdata <- merge(educdata, hhreg, all.x=TRUE, all.y=FALSE)
 educdata <- merge(educdata, percagveg)
 educdata <- educdata[educdata$age >= 25 &  educdata$age <= 30,]
 
