@@ -1,14 +1,37 @@
+===============================================================================
+Education Ordinal Logistic Regression
+===============================================================================
+
+:Author: Alex Zvoleff
+:Date: July, 2012
+
+.. {r setup_reST_options, echo=FALSE, cache=FALSE}
+require(knitr)
+# Setup knitr options:
+options(width = 75)
+opts_chunk$set(cache=TRUE, cache.path='knitr-cache/', fig.path='knitr-figure/',
+    fig.width=4.5, fig.height=3, out.width='4.5in', out.height='3in', dpi=300, 
+    dev='pdf')
+.. ..
+
+Setup and Load Data
+===============================================================================
+.. {r setup, results='hide', echo=FALSE, cache=FALSE}
 library(ggplot2)
 library(rms) # Note 'Design' package was renamed to "rms"
 library(foreign)
+library(mlogit)
+library(arm)
 
-theme_update(theme_grey(base_size=18))
+theme_update(theme_grey(base_size=11))
 update_geom_defaults("smooth", aes(size=1))
 update_geom_defaults("line", aes(size=1))
 DPI <- 300
 WIDTH <- 9
 HEIGHT <- 5.67
+.. ..
 
+.. {r load-data, cache=FALSE}
 lu <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
 land.agveg <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
 land.nonagveg <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
@@ -27,27 +50,30 @@ percagveg$log_percagveg <- log(percagveg$percagveg + 1)
 load("V:/Nepal/CVFS_R_format/hhreg.Rdata")
 columns <- grep('^(respid|ethnic)$', names(hhreg))
 hhreg <- hhreg[columns]
-hhreg$ethnic[hhreg$ethnic== 1] <- "HighHindu"
-hhreg$ethnic[hhreg$ethnic== 2] <- "HillTibeto"
-hhreg$ethnic[hhreg$ethnic== 3] <- "LowHindu"
-hhreg$ethnic[hhreg$ethnic== 4] <- "Newar"
-hhreg$ethnic[hhreg$ethnic== 5] <- "TeraiTibeto"
-hhreg$ethnic[hhreg$ethnic== 6] <- "Other"
+hhreg$ethnic[hhreg$ethnic == 1] <- "HighHindu"
+hhreg$ethnic[hhreg$ethnic == 2] <- "HillTibeto"
+hhreg$ethnic[hhreg$ethnic == 3] <- "LowHindu"
+hhreg$ethnic[hhreg$ethnic == 4] <- "Newar"
+hhreg$ethnic[hhreg$ethnic == 5] <- "TeraiTibeto"
+hhreg$ethnic[hhreg$ethnic == 6] <- "Other"
 hhreg$ethnic <- factor(hhreg$ethnic)
 
 # Read in t1 individual interview data to get years of schooling, age, gender, 
 # etc.
 t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
-educdata <- with(t1indiv, data.frame(respid=RESPID, neighid=NEIGHID, schooling=A1, age=RESPAGE, gender=GENDER))
+educdata <- with(t1indiv, data.frame(respid=RESPID, neighid=NEIGHID, schooling=A1, age=RESPAGE, gender=GENDER, mother_school=I7, father_school=I11))
+
+# Eliminate missing value codes:
+educdata$mother_school[educdata$mother_school < 0] <- NA
+educdata$father_school[educdata$father_school < 0] <- NA
 
 educdata <- merge(educdata, hhreg)
 educdata <- merge(educdata, percagveg)
 educdata <- educdata[educdata$age >= 25 &  educdata$age <= 30,]
 
-# Run some basic stats:
-with(educdata, xtabs(~age + schooling))
-with(educdata, xtabs(~schooling + gender))
-with(educdata, xtabs(~schooling + ethnic))
+# Load neighborhood history data to get minutes on foot to nearest school
+neighhist <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0014_REST.xpt")
+neighhist <- with(neighhist, data.frame(neighid=NEIGHID, schlftmin1996=SCHLFT52))
 
 # Add a categorical years of schooling variable
 educdata$schooling_cat <- educdata$schooling
@@ -58,12 +84,91 @@ educdata$schooling_cat[educdata$schooling > 8 & educdata$schooling <= 11] <- 'gt
 educdata$schooling_cat[educdata$schooling > 11] <- 'gt11'
 educdata$schooling_cat <- factor(educdata$schooling_cat, levels=c('eq0', 'gt0lt4', 'gt4lt8', 'gt8lt11', 'gt11'), ordered=TRUE)
 
-table(educdata$schooling_cat)
-with(educdata, xtabs(~schooling_cat + age))
-
 educdata <- educdata[complete.cases(educdata),]
+.. ..
 
+Basic Stats
+===============================================================================
+
+First run some crosstabs to ensure sample size is large enough in each of the 
+predictor variables.
+
+.. {r basic_stats}
+summary(educdata$schooling)
+sd(educdata$schooling, na.rm=T)
+table(educdata$schooling_cat)
+with(educdata, xtabs(~ schooling_cat + age))
+with(educdata, xtabs(~ schooling_cat + gender))
+with(educdata, xtabs(~ schooling_cat + ethnic))
+with(educdata, xtabs(~ schooling_cat + mother_school))
+with(educdata, xtabs(~ schooling_cat + father_school))
+.. ..
+
+Don't include distance in minutes on foot to a school as a cvariate as every 
+neighborhood has a school close by. The max distance in minutes on foot is only 
+:r:`max(neighhist$schlftmin1996)`, and the mean distance in minutes on foot is 
+:r:`mean(neighhist$schlftmin1996)`.
+
+.. {r schlftmin-table}
+table(neighhist$schlftmin1996)
+.. ..
+
+Results
+===============================================================================
+
+Ordinal Logistic Regression
+_______________________________________________________________________________
+
+First try an ordinal logistic regression using `lrm` from the `rms` package.
+.. {r results-lrm}
 educdata_dist <- with(educdata, datadist(gender, ethnic, log_percagveg))
 options(datadist='educdata_dist')
 lrm_schooling_cat <- lrm(schooling_cat ~ gender + ethnic + log_percagveg, data=educdata)
+summary(lrm_schooling_cat)
+anova(lrm_schooling_cat)
+lrm_schooling_cat_odds <- cbind(odds_ratio=exp(coef(lrm_schooling_cat)), exp(confint.default(lrm_schooling_cat)))
+(lrm_schooling_cat_odds <- round(lrm_schooling_cat_odds, 4))
 write.csv(summary(lrm_schooling_cat), file="lrm_schooling_cat.csv")
+.. ..
+
+Check the ordinality assumption by plotting mean of education mean Y versus mean X:
+
+.. {r meaneduc_vs_gender}
+qplot(gender, schooling, data=educdata, stat="summary", fun.y="mean")
+.. ..
+
+.. {r meaneduc_vs_ethnic}
+qplot(ethnic, schooling, data=educdata, stat="summary", fun.y="mean")
+.. ..
+
+.. {r meaneduc_vs_percagveg}
+qplot(percagveg, schooling, data=educdata, stat="summary", fun.y="mean")
+.. ..
+
+.. {r test_ordinality_assumption}
+par(mfrow=c(2,2))
+plot.xmean.ordinaly(schooling_cat ~ gender + ethnic + log_percagveg, 
+data=educdata, topcats=2)
+par(mfrow=c(1,1))
+.. ..
+
+Multinomial Logistic Regression
+_______________________________________________________________________________
+Now try a multinomial logistic regression using `mlogit` from the `mlogit` package.
+.. {r results-mlogit}
+educdata.mlogit <- mlogit.data(educdata, varying=NULL, choice="schooling_cat", shape="wide")
+mlogit_schooling_cat <- mlogit(schooling_cat ~ 1| gender + ethnic + log_percagveg, data=educdata.mlogit)
+summary(mlogit_schooling_cat)
+mlogit_schooling_cat_odds <- cbind(odds_ratio=exp(coef(mlogit_schooling_cat)), exp(confint.default(mlogit_schooling_cat)))
+(mlogit_schooling_cat_odds <- round(mlogit_schooling_cat_odds, 4))
+write.csv(summary(lrm_schooling_cat), file="lrm_schooling_cat.csv")
+.. ..
+
+Now test the independence of irrelevant alternatives (IIA) with Hausman McFadden test:
+.. {r hausman-mcfadden-test}
+mlogit1 <- mlogit(schooling_cat ~ 1| gender + ethnic + log_percagveg, data = educdata.mlogit, reflevel="eq0")
+mlogit2 <- mlogit(schooling_cat ~ 1| gender + ethnic + log_percagveg, data = educdata.mlogit, reflevel="eq0", alt.subset=c("eq0", "gt0lt4"))
+mlogit3 <- mlogit(schooling_cat ~ 1| gender + ethnic + log_percagveg, data = educdata.mlogit, reflevel="eq0", alt.subset=c("eq0", "gt8lt11"))
+hmftest(mlogit1, mlogit2)
+hmftest(mlogit1, mlogit3)
+.. ..
