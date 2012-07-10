@@ -117,11 +117,10 @@ _______________________________________________________________________________
 LD_fixed <- glm(migr ~ ethnic + gender + agegrp + timeyears + I(timeyears**2),
                     data=migrations.long, family=binomial)
 save(LD_fixed, file="migration_LD_fixed.Rdata")
+summary(LD_fixed)
 LD_fixed.results <- data.frame(coef=coef(LD_fixed),
     odds_ratio=exp(coef(LD_fixed)), se=se.coef(LD_fixed))
-LD_fixed.results <- round(LD_fixed.results, 4)
-summary(LD_fixed)
-LD_fixed.results
+(LD_fixed.results <- round(LD_fixed.results, 4))
 .. ..
 
 Mixed-effects model - random intercept at neighborhood level (age groups)
@@ -131,11 +130,11 @@ LD_random_int <- glmer(migr ~ ethnic + gender + agegrp + timeyears + I(timeyears
                             (1 | originNBH), data=migrations.long, 
                             family=binomial, verbose=TRUE)
 save(LD_random_int, file="migration_LD_random_int.Rdata")
+summary(LD_random_int)
 LD_random_int.results <- data.frame(coef=fixef(LD_random_int),
     odds_ratio=exp(fixef(LD_random_int)), se=se.fixef(LD_random_int))
 LD_random_int.results <- round(LD_random_int.results, 4)
-summary(LD_random_int)
-LD_random_int.results
+(LD_random_int.results)
 .. ..
 
 Mixed-effects model - random intercepts at individual and neighborhood level (age groups)
@@ -147,11 +146,10 @@ LD_random_int_2level <- glmer(migr ~ ethnic + gender + agegrp +
                                 (1 | originNBH), data=migrations.long, 
                                 family=binomial, verbose=TRUE)
 save(LD_random_int_2level, file="migration_LD_random_int_2level.Rdata")
+summary(LD_random_int_2level)
 LD_random_int_2level.results <- data.frame(coef=fixef(LD_random_int_2level),
     odds_ratio=exp(fixef(LD_random_int_2level)), se=se.fixef(LD_random_int_2level))
-LD_random_int_2level.results <- round(LD_random_int_2level.results, 4)
-summary(LD_random_int_2level)
-LD_random_int_2level.results
+(LD_random_int_2level.results <- round(LD_random_int_2level.results, 4))
 .. ..
 
 Mixed-effects model - random intercept at neighborhood level (continuous age in decades)
@@ -161,12 +159,11 @@ LD_random_int_contage <- glmer(migr ~ ethnic + gender + agedecades + timeyears +
                             (1 | originNBH), data=migrations.long, 
                             family=binomial, verbose=TRUE)
 save(LD_random_int_contage, file="migration_LD_random_int_contage.Rdata")
+summary(LD_random_int_contage)
 LD_random_int_contage.results <- data.frame(coef=fixef(LD_random_int_contage),
     odds_ratio=exp(fixef(LD_random_int_contage)), 
     se=se.fixef(LD_random_int_contage))
-LD_random_int_contage.results <- round(LD_random_int_contage.results, 4)
-summary(LD_random_int_contage)
-LD_random_int_contage.results
+(LD_random_int_contage.results <- round(LD_random_int_contage.results, 4))
 .. ..
 
 Mixed-effects model - random intercepts at individual and neighborhood level (continuous age in decades)
@@ -178,12 +175,11 @@ LD_random_int_contage_2level <- glmer(migr ~ ethnic + gender + agedecades +
                                 (1 | originNBH), data=migrations.long, 
                                 family=binomial, verbose=TRUE)
 save(LD_random_int_contage_2level, file="migration_LD_random_int_contage_2level.Rdata")
+summary(LD_random_int_contage_2level)
 LD_random_int_contage_2level.results <- data.frame(coef=fixef(LD_random_int_contage_2level),
     odds_ratio=exp(fixef(LD_random_int_contage_2level)), 
     se=se.fixef(LD_random_int_contage_2level))
-LD_random_int_contage_2level.results <- round(LD_random_int_contage_2level.results, 4)
-summary(LD_random_int_contage_2level)
-LD_random_int_contage_2level.results
+(LD_random_int_contage_2level.results <- round(LD_random_int_contage_2level.results, 4))
 .. ..
 
 
