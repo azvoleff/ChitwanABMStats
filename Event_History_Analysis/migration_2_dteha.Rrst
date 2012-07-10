@@ -1,13 +1,13 @@
 ===============================================================================
-Migration Survival Analysis Code for the ChitwanABM
+Migration Discrete Time Event History Analysis Code for the ChitwanABM
 ===============================================================================
 
 :Author: Alex Zvoleff
 :Email: azvoleff@mail.sdsu.edu
 :Date: July, 2012
 
-Uses survival analysis to parameterize the ChitwanABM using data from the 
-Chitwan Valley Family Study.
+Uses discrete time event history analysis to parameterize the ChitwanABM using 
+data from the Chitwan Valley Family Study.
 
 Note the following regarding this source dataset, created from 
 the migration_1_preprocess.R script:
@@ -27,6 +27,11 @@ the migration_1_preprocess.R script:
        to define the minimum period away from a household to be considered a 
        migrant, there were only 125 months of data to consider (as migrations 
        cannot be conclusively determined within the last one month of data).
+
+Follows analysis of Massey, Axinn, and Ghimire (2010):
+    Massey, D. S., W. G. Axinn, and D. J. Ghimire. 2010. Environmental change 
+    and out-migration: evidence from Nepal. Population and Environment. (last 
+    accessed 16 September 2010).
 
 Load the data and setup R
 ===============================================================================
@@ -50,7 +55,7 @@ theme_update(theme_bw(base_size=10))
 #update_geom_defaults("line", aes(size=.75))
  
 #load("data/migration_data_wideformat-1_months_away.Rdata")
-load("data/migration_data_longformat-1_months_away-up_to_month_36.Rdata")
+load("data/migration_data-longformat-1_months_away-up_to_month_36.Rdata")
 # We are considering only LD migrations. So censor the LL migrations, set LD 
 # migrations to 1, and set no migration observations (NM) to 0
 migrations_long$migr <- as.character(migrations_long$migr)
@@ -60,8 +65,8 @@ migrations_long$migr[migrations_long$migr=="LD"] <- 1
 migrations_long$migr <- as.factor(migrations_long$migr)
 migrations_long <- migrations_long[!is.na(migrations_long$migr),]
 
-# Recode "other" ethnicity to Terai tibeto-burmese
-migrations_long$ethnic[migrations_long$ethnic==6] <- 5
+# Drop "other" ethnicity for consistency with Massey et al. (2010)
+migrations_long <- migrations_long[!(migrations_long$ethnic=="Other")]
 migrations_long$ethnic <- as.factor(migrations_long$ethnic)
 migrations_long$gender <- as.factor(migrations_long$gender)
 
