@@ -19,6 +19,10 @@ library(foreign)
 # number of months is 126, so to include all the months set LAST.MONTH to 126).
 LAST.MONTH <- 90 # Yabiku (2006) uses 90 months
 
+###############################################################################
+# Recode the data as necessary and setup the marit_status matrix for later 
+# censoring.
+###############################################################################
 #load("/media/Local_Secure/CVFS_R_format/hhreg.Rdata")
 print("Loading data...")
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
@@ -69,6 +73,7 @@ hhreg[marit_cols][hhreg[marit_cols]==5] <- NA
 hhreg[marit_cols][hhreg[marit_cols]==6] <- NA
 
 marit_status <- hhreg[marit_cols]
+row.names(marit_status) <- hhreg$respid
 
 # TODO: Check if Yabiku only included people local in 1996 - the paper is not 
 # clear on this point.
@@ -84,12 +89,12 @@ marit_status <- marit_status[in_sample,]
 # Save the variables that will be needed later as independent variables, 
 # including the neighborhood and household IDs, for each person, and some other 
 # covariates.
-indepvars <- cbind(hhreg$respid, hhreg[place_cols], hhreg$ethnic, hhreg$gender, hhreg[age_cols], hhreg[hhid_cols])
+indepvars <- cbind(respid=hhreg$respid, hhreg[hhid_cols], hhreg[place_cols], ethnic=hhreg$ethnic, gender=hhreg$gender, hhreg[age_cols], originalHH=hhreg$hhid1, originalNBH=hhreg$place1)
 indepvars <- indepvars[in_sample,]
 
-# Temp debugging code:
-marit_status_backup <- marit_status
-
+###############################################################################
+# Censor the data
+###############################################################################
 # Now censor the data by finding the first marriage activity in each row, and 
 # setting every cell in the row after that one to NA. Also censor every cell in 
 # a row after the first NA in that row. The min(!is.na below is necessary to 
@@ -131,39 +136,31 @@ marit_status <- marit_status_temp
 marit_status <- data.frame(respid=row.names(marit_status), marit_status)
 
 ###############################################################################
-###############################################################################
-###############################################################################
-# Finish the below - as far as I got on 7/9/2012.
-# Add in a var for the first neighborhood they were resident in.
-###############################################################################
-###############################################################################
-###############################################################################
-
-###############################################################################
 # Output the data
 ###############################################################################
 print("Outputting censored data...")
-# First output in wide format
 
+# First output in wide format
 # Add columns with neighborhood and household ID, ethnicity, age, sex, and 
 # hhid.
 marit_wide <- merge(indepvars, marit_status, by="respid", all.x=F, all.y=T)
 # Need to order the data properly for it to be used in MLwiN
-marit_wide <- marit_wide[order(marit_wide$respid),]
-save(marit_wide, file=paste("data/marriage_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
-write.csv(marit_wide, file=paste("data/marriage_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
+marit_wide <- marit_wide[order(marit_wide$respid, marit_wide$originalHH, marit_wide$originalNBH),]
+save(marit_wide, file=paste("data/marriage_data-wideformat-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
+write.csv(marit_wide, file=paste("data/marriage_data-wideformat-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
 
 # Now in long format
-migr.cols <- grep('^migr[0-9]*$', names(marit_wide))
-age.cols <- grep('^age[0-9]*$', names(marit_wide))
-hhid.cols <- grep('^hhid[0-9]*$', names(marit_wide))
+marit_cols <- grep('^marit[0-9]*$', names(marit_wide))
+age_cols <- grep('^age[0-9]*$', names(marit_wide))
+hhid_cols <- grep('^hhid[0-9]*$', names(marit_wide))
+place_cols <- grep('^place[0-9]*$', names(marit_wide))
 # Now construct the long-format dataset
 marit_long <- reshape(marit_wide, idvar="respid", 
-                             varying=list(migr.cols, age.cols,
-                                          hhid.cols), 
-                             v.names=c("migr", "age", "hhid"),
+                             varying=list(marit_cols, age_cols,
+                                          hhid_cols, place_cols), 
+                             v.names=c("marit", "age", "hhid", "place"),
                              direction="long", sep="")
-marit_long <- marit_long[!is.na(marit_long$migr),]
-marit_long <- marit_long[order(marit_long$originNBH, marit_long$respid),]
-save(marit_long, file=paste("data/marriage_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
-write.csv(marit_long, file=paste("data/marriage_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
+marit_long <- marit_long[!is.na(marit_long$marit),]
+marit_long <- marit_long[order(marit_long$respid, marit_long$originalHH, marit_long$originalNBH),]
+save(marit_long, file=paste("data/marriage_data-longformat-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
+write.csv(marit_long, file=paste("data/marriage_data-longformat-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
