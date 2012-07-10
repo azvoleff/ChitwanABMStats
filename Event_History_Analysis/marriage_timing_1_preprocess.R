@@ -3,131 +3,167 @@
 # Encodes marriage data, as right censored data. Only includes individuals 
 # present in 1996. Encodes wide and long format person-month dataset for later 
 # analysis with glmer and or MLwiN.
+# 
+# Follows analysis of Yabiku, 2006:
+#     Yabiku, S. T. 2006. Land use and marriage timing in Nepal. Population & 
+#     Environment 27 (5):445–461.
 ###############################################################################
 
-# Hmisc is needed as hhreg is a "labelled" dataframe. If Hmisc is nto included, 
+# Hmisc is needed as hhreg is a "labelled" dataframe. If Hmisc is not included, 
 # will get errors saying "cannot coerce class "labelled" into a data.frame"
-require(Hmisc)
+library(Hmisc)
+library(ggplot2)
+library(foreign)
+
+# Months.total is how many months of the household registry to include (max 
+# number of months is 126, so to include all the months set LAST.MONTH to 126).
+LAST.MONTH <- 90 # Yabiku (2006) uses 90 months
 
 #load("/media/Local_Secure/CVFS_R_format/hhreg.Rdata")
 print("Loading data...")
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
-load("T:/CVFS_R_format/hhreg.Rdata")
-load("t1_lulc.Rdata")
+# Drop the appropriate monthly columns if LAST.MONTH is < 126
+varying_cols <- grep('^[a-zA-Z]*[1-9][0-9]{0,2}$', names(hhreg))
+varying_cols_times <- as.numeric(gsub('[a-zA-Z]', '', names(hhreg)[varying_cols]))
+if (LAST.MONTH < max(varying_cols_times)) {
+    drop_cols <- varying_cols[varying_cols_times > LAST.MONTH]
+    hhreg <- hhreg[-drop_cols]
+}
 
-# Drop individuals younger than 15, and older than 20 as of 1996
-hhreg <- hhreg[!is.na(hhreg$agelt),]
-hhreg <- hhreg[hhreg$agelt>=15 & hhreg$agelt<25,]
+hhid_cols <- grep('^hhid[0-9]*$', names(hhreg))
+marit_cols <- grep('^(marit)[0-9]*$', names(hhreg))
+place_cols <- grep('^(place)[0-9]*$', names(hhreg))
+age_cols <- grep('^age[0-9]*$', names(hhreg))
+
+# Load the LULC data:
+lu <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
+land.agveg <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
+land.nonagveg <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
+land.privbldg <- with(lu, rowSums(cbind(HHRESID1, MILL1, OTRBLD1)))
+land.pubbldg <- with(lu, rowSums(cbind(ROAD1, SCHOOL1, TEMPLE1)))
+land.other <- with(lu, rowSums(cbind(CANAL1, POND1, RIVER1, SILT1, UNDVP1)))
+lu.processed <- data.frame(NEIGHID=lu$NEIGHID, land.agveg, land.nonagveg, land.privbldg, land.pubbldg, land.other)
+# Convert land areas expressed in square feet to square meters
+lu.processed[2:6]  <- lu.processed[2:6] * .09290304
+lu.processed$NEIGHID <- as.numeric(lu.processed$NEIGHID)
+lu.processed$land.total <- apply(lu.processed[2:6], 1, sum)
+percagveg <- with(lu.processed, data.frame(neighid=NEIGHID, percagveg=(land.agveg/land.total)*100))
+percagveg$log_percagveg <- log(percagveg$percagveg + 1)
 
 hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
 hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
         "HillTibeto", "LowHindu", "Newar", "TeraiTibeto", "Other"))
 
+# Clean the data to convert unneeded missing value codes to NAs
+hhreg[hhid_cols][hhreg[hhid_cols]=="     A"] <- NA # Inappropriate code is A
+
 # Recode 1 and 2 (married living with/without spouse) as 1, meaning married in 
 # that month. Recode 3, (unmarried) as 0, and 4, 5 and 6 (widowed, divorced, 
 # separated) as NA.
-maritcolumns <- grep('^(marit)[0-9]*$', names(hhreg))
+hhreg[marit_cols][hhreg[marit_cols] < 0] <- NA
+hhreg[marit_cols][hhreg[marit_cols]==1] <- 1
+hhreg[marit_cols][hhreg[marit_cols]==2] <- 1
+hhreg[marit_cols][hhreg[marit_cols]==3] <- 0
+hhreg[marit_cols][hhreg[marit_cols]==4] <- NA
+hhreg[marit_cols][hhreg[marit_cols]==5] <- NA
+hhreg[marit_cols][hhreg[marit_cols]==6] <- NA
 
-hhreg[maritcolumns][hhreg[maritcolumns] < 0] <- NA
-hhreg[maritcolumns][hhreg[maritcolumns]==1] <- 1
-hhreg[maritcolumns][hhreg[maritcolumns]==2] <- 1
-hhreg[maritcolumns][hhreg[maritcolumns]==3] <- 0
-hhreg[maritcolumns][hhreg[maritcolumns]==4] <- NA
-hhreg[maritcolumns][hhreg[maritcolumns]==5] <- NA
-hhreg[maritcolumns][hhreg[maritcolumns]==6] <- NA
+marit_status <- hhreg[marit_cols]
 
-# Eliminate where there were no months in which the individual was married or 
-# unmarried (meaning they were widowed, divorced, or separated the entire time.
-good_rows <- apply(hhreg[maritcolumns], 1, function(x) match(c(0,1), x, nomatch=NA))
-bad_rows <- is.na(good_rows[1,]) & is.na(good_rows[2,])
-hhreg <- hhreg[!bad_rows,]
+# TODO: Check if Yabiku only included people local in 1996 - the paper is not 
+# clear on this point.
+# Now only include people who, in 1996, were: 1) local in the Chitwan Valley,
+# 2) older than 15, 3) younger than 20 (per Yabiku, 2006), 4) unmarried, 5) had 
+# a valid household ID number.
+#(places[,1] > 1) & (places[,1] <= 502)
+in_sample <- (hhreg[age_cols[1]] >=15)   & (hhreg[age_cols[1]] < 20) &
+             (hhreg[place_cols[1]] > 1)  & (hhreg[place_cols[1]] <= 502) &
+             (hhreg[marit_cols[1]] == 0) & !is.na(hhreg[,hhid_cols[1]])
+in_sample[is.na(in_sample)] <- FALSE
+marit_status <- marit_status[in_sample,]
+# Save the variables that will be needed later as independent variables, 
+# including the neighborhood and household IDs, for each person, and some other 
+# covariates.
+indepvars <- cbind(hhreg$respid, hhreg[place_cols], hhreg$ethnic, hhreg$gender, hhreg[age_cols], hhreg[hhid_cols])
+indepvars <- indepvars[in_sample,]
 
-marriage_month <- apply(hhreg[maritcolumns], 1, function(x) match(1, x, nomatch=NA))
-marriage_outcome <- marriage_month
-# If the individual was married after month 1, then code this as a 1 (event 
-# occurred at an observed timestep).
-marriage_outcome[marriage_month>1] <- 1
-# NAs mean that there was never a marriage
-marriage_outcome[is.na(marriage_month)] <- 0
+# Temp debugging code:
+marit_status_backup <- marit_status
 
-# Set marriage_month 
-marriage_month[is.na(marriage_month)] <- length(maritcolumns)
-
-status_age <- hhreg$agelt + marriage_month/12
-
-# Set the start time and end time to be in months since age 15 (when 
-# individuals are first exposed to the hazard of marriage).
-# The start time is equal to the time of the first observation, which is the 
-# first 0 or 1 to appear in the marit status
-start_time <- apply(hhreg[maritcolumns], 1, function(x) match(c(0,1), x, nomatch=999))
-start_time <- as.numeric((hhreg$agelt-15)*12) + apply(start_time, 2, min)
-end_time <- as.numeric((hhreg$agelt-15)*12 + marriage_month+1)
-
-place_cols <- grep('^(place)[0-9]*$', names(hhreg))
-hhid_cols <- grep('^(hhid)[0-9]*$', names(hhreg))
-
-# For simplicity, assign each individual the hhid and placeid they were 
-# assigned for the month that they married.
-hhid <- c()
-place <- c()
-for (n in 1:nrow(hhreg)) {
-    place_col <- place_cols[marriage_month[n]]
-    place <- c(place, hhreg[n, place_col])
-    hhid_col <- hhid_cols[marriage_month[n]]
-    hhid <- c(hhid, hhreg[n, hhid_col])
-}
-
-respid_col<- grep('^(respid)]*$', names(hhreg))
-agelt_col<- grep('^(agelt)]*$', names(hhreg))
-gender_col<- grep('^(gender)]*$', names(hhreg))
-ethnic_col<- grep('^(ethnic)]*$', names(hhreg))
-marriages <- data.frame(respid=hhreg[respid_col], hhid, place,
-        marriage_outcome, agelt=hhreg[agelt_col], gender=hhreg[gender_col],
-        ethnic=hhreg[ethnic_col], marriage_month, status_age, start_time,
-        end_time)
-
-marriages <- marriages[marriages$place<=151 & marriages$place>=1,]
-names(marriages)[grep('place', names(marriages))] <- "nid"
-
-marriages <- merge(marriages, lulc)
-
-save(marriages, file="marriage_times.Rdata")
-
-###############################################################################
-# Now process an event history dataset in person-months
-###############################################################################
-# Censor data: add NAs for every month after the first marriage
-pb <- txtProgressBar(min=0, max=nrow(hhreg), style=3)
-for (rownum in 1:nrow(hhreg)) {
-    setTxtProgressBar(pb, rownum)
-    for (colnum in maritcolumns[2:length(maritcolumns)]) {
-        if (hhreg[rownum, colnum-1]==1 | is.na(hhreg[rownum, colnum-1])) {
-            hhreg[rownum, colnum] <- NA
-        }
+# Now censor the data by finding the first marriage activity in each row, and 
+# setting every cell in the row after that one to NA. Also censor every cell in 
+# a row after the first NA in that row. The min(!is.na below is necessary to 
+# find the first match of any type of marriage.
+print("Censoring data...")
+censor_data <- function(record) {
+    first_marr_column <- na.omit(match(1, record))
+    if (length(first_marr_column)>0) {
+        first_marr_column <- min(first_marr_column[!is.na(first_marr_column)])
+    } else first_marr_column <- NA
+    first_NA_column <- match(TRUE, is.na(record))
+    if (is.na(first_marr_column) && is.na(first_NA_column)) {
+        return(record)
+    } else if (is.na(first_marr_column)) {
+        first_censored_col <- first_NA_column
+    } else if (is.na(first_NA_column)) {
+        first_censored_col <- first_marr_column + 1
+    } else if (first_NA_column < first_marr_column) {
+        first_censored_col <- first_NA_column
+    } else {
+        first_censored_col <- first_marr_column + 1
     }
+    if (first_censored_col <= length(record)) {
+        record[first_censored_col:length(record)] <- NA
+    }
+    return(record)
 }
+marit_status_temp <- t(apply(marit_status, 1, censor_data))
+# Apply returned a matrix, and marit_status_temp lost its row and column names.  
+# Reassign them so marit_status ends up as the final censored matrix with correct 
+# row and column names.
+marit_status <- marit_status_temp
+marit_status_temp <- data.frame(marit_status_temp, row.names=row.names(marit_status))
+names(marit_status_temp) <- names(hhreg[marit_cols])
+marit_status <- marit_status_temp
 
-# Add a series of interpolated agveg LULC columns
-pagrit1, pagrit2
+# Add respid and column to marit_status dataframe (row.names were assigned earlier 
+# for this dataframe).
+marit_status <- data.frame(respid=row.names(marit_status), marit_status)
 
-# Find the column indices of all columns that are needed
-varying_cols <- grep('^(marit|age|hhid|place)[0-9]*$', names(hhreg))
-non_varying_cols <- grep('^(gender|ethnic|respid|agelt)]*$', names(hhreg))
+###############################################################################
+###############################################################################
+###############################################################################
+# Finish the below - as far as I got on 7/9/2012.
+# Add in a var for the first neighborhood they were resident in.
+###############################################################################
+###############################################################################
+###############################################################################
 
-# Reshape age Include columns 1, 3, and 4 as these are respid, ethnic, and 
-# gender, respectively.
-events <- reshape(hhreg[c(non_varying_cols, varying_cols)], direction="long",
-                varying=names(hhreg[varying_cols]), idvar="respid", timevar="time", 
-                sep="")
+###############################################################################
+# Output the data
+###############################################################################
+print("Outputting censored data...")
+# First output in wide format
 
-events <- events[events$place<=151 & events$place>=1,]
-names(events)[grep('place', names(events))] <- "nid"
+# Add columns with neighborhood and household ID, ethnicity, age, sex, and 
+# hhid.
+marit_wide <- merge(indepvars, marit_status, by="respid", all.x=F, all.y=T)
+# Need to order the data properly for it to be used in MLwiN
+marit_wide <- marit_wide[order(marit_wide$respid),]
+save(marit_wide, file=paste("data/marriage_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
+write.csv(marit_wide, file=paste("data/marriage_data_wideformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
 
-events <- merge(events, lulc)
-save(events, file="marriage_events_censored.Rdata")
-
-# Save another version where person is dropped for all months after their 
-# marriage (they are no longer considered at risk).
-events <- events[!is.na(events$marit),]
-
-save(events, file="marriage_events_atrisk.Rdata")
+# Now in long format
+migr.cols <- grep('^migr[0-9]*$', names(marit_wide))
+age.cols <- grep('^age[0-9]*$', names(marit_wide))
+hhid.cols <- grep('^hhid[0-9]*$', names(marit_wide))
+# Now construct the long-format dataset
+marit_long <- reshape(marit_wide, idvar="respid", 
+                             varying=list(migr.cols, age.cols,
+                                          hhid.cols), 
+                             v.names=c("migr", "age", "hhid"),
+                             direction="long", sep="")
+marit_long <- marit_long[!is.na(marit_long$migr),]
+marit_long <- marit_long[order(marit_long$originNBH, marit_long$respid),]
+save(marit_long, file=paste("data/marriage_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
+write.csv(marit_long, file=paste("data/marriage_data_longformat-", MONTHS.AWAY, "_months_away-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
