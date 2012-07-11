@@ -1,0 +1,105 @@
+#!/usr/bin/env Rscript
+###############################################################################
+# Analyzes household fission, using data from the CVFS monthly household 
+# registry. Uses as its sample all present locally in the first month of 1996.  
+# The process is as follows:
+#   1) Find first marriage month
+#   2) Find HHID in first marriage month
+#   4) Look 3, 6, 9, 12, 15, 18, 21, and 24 months out from marriage
+#       a) Does HHID change?
+#   5) Store date of change of HHID
+#       a) Are parents of either spouse in the new household?
+# 
+# NOTE: This analysis uses the output of marriage_timing_1_preprocess.R.
+###############################################################################
+
+# Hmisc is needed as hhreg is a "labelled" dataframe. If Hmisc is not included, 
+# will get errors saying "cannot coerce class "labelled" into a data.frame"
+library(Hmisc)
+library(ggplot2)
+library(foreign)
+
+# WINDOW_WIDTH specifies how many months to include pre and post marriage in 
+# determining the dominant HHID
+WINDOW_WIDTH <- 24
+
+###############################################################################
+# Load data and setup functions
+###############################################################################
+
+load("data/marriage_data-longformat-up_to_month_90.Rdata")
+
+# Also load the full household registry dataset to be used in making the 
+# windows around the marriage month.
+load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+hhid_cols <- grep('^hhid[0-9]*$', names(hhreg))
+# Clean the data to convert unneeded missing value codes to NAs
+hhreg[hhid_cols][hhreg[hhid_cols]=="     A"] <- NA # Inappropriate code is A
+hhreg[hhid_cols][hhreg[hhid_cols]=="     G"] <- NA # Inappropriate code is A
+
+dominant_household <- function(hh_row) {
+    # Function that takes in a row of household IDs, and returns the dominant 
+    # HHID (whatever household a person spent the majority of the time in 
+    # during that period. If their time was split evenly between two 
+    # households, return NA.
+    all_HHs <- unique(hh_row)
+    months_per_HH <- sapply(all_HHs, function(HHID) sum(hh_row == HHID, na.rm=TRUE))
+    dominant_HH <- all_HHs[months_per_HH == max(months_per_HH)]
+    if (length(dominant_HH) > 1) return(NA)
+    return(dominant_HH)
+}
+
+make_HHID_window <- function(hh_row, center, width) {
+    # Makes a "window" of household IDs centered on a selected month. Allows 
+    # making a wide dataset of marriages, with a series of household IDs for 
+    # each row with equal width preceding to and following a marriage. Once 
+    # this window is created, the above "dominant_household" function can be 
+    # used to determine if a change in household ID occurred following a 
+    # marriage.
+    if (is.factor(hh_row)) hh_row <- as.character(hh_row)
+    if (!is.null(dim(hh_row)) && min(dim(hh_row)>1)) stop("hh_row cannot have more than 1 dimension of length > 1")
+    if ((center - width) < 0) {
+        window <- hh_row[1:(center)]
+        window <- c(rep(NA, (width - center)), window)
+    } else window <- hh_row[(center - width + 1):center]
+    if (length(hh_row) < (center + width - 1)) {
+        window <- c(window, hh_row[(center+1):length(hh_row)])
+        window <- c(window, rep(NA, (center + width - 1) - length(hh_row)))
+    } else window <- c(window, hh_row[(center+1):(center+width-1)])
+    return(window)
+}
+
+
+###############################################################################
+# Now start processing
+###############################################################################
+
+# First find those who have married:
+marit_long <- marit_long[marit_long$marit==1,]
+
+hhreg <- hhreg[hhreg$respid %in% marit_long$respid,]
+# Reorder hhreg so that the respondent rows in hhreg match the order of the 
+# rows in the marit_long data.frame:
+hhreg <- hhreg[match(hhreg$respid, marit_long$respid),]
+
+# Now make windows around the marriage month
+marit_windows <- t(mapply(make_HHID_window,
+                        as.list(as.data.frame(t(hhreg[hhid_cols]))),
+                        marit_long$time, WINDOW_WIDTH))
+
+# Now look at how many people changed HHIDs from the year before to the year 
+# after their marriage:
+pre_marr_HHID <- apply(marit_windows[,1:WINDOW_WIDTH], 1, dominant_household)
+post_marr_HHID <- apply(marit_windows[,WINDOW_WIDTH:ncol(marit_windows)], 1, dominant_household)
+marit_long <- cbind(marit_long, pre_marr_HHID, post_marr_HHID, 
+                    changedHHID=pre_marr_HHID!=post_marr_HHID, 
+                    entered_sample=is.na(pre_marr_HHID)&!is.na(post_marr_HHID),
+                    left_sample=!is.na(pre_marr_HHID)&is.na(post_marr_HHID))
+
+xtabs(~ gender + left_sample, exclude=NULL, data=marit_long)
+xtabs(~ gender + entered_sample, exclude=NULL, data=marit_long)
+xtabs(~ gender + changedHHID, exclude=NULL, data=marit_long)
+table(is.na(pre_marr_HHID) & !is.na(post_marr_HHID), exclude=NULL)
+table(!is.na(pre_marr_HHID) & is.na(post_marr_HHID), exclude=NULL)
+table(!is.na(pre_marr_HHID) & !is.na(post_marr_HHID), exclude=NULL)
+table(is.na(pre_marr_HHID) & is.na(post_marr_HHID), exclude=NULL)
