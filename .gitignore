@@ -1,8 +1,10 @@
 .Rhistory
 .RData
 *.Rdata
-*.pdf
 *.swp
 *.csv
 *.png
 *.txt
+*.rst
+*.rdb
+*.rdx
