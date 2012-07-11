@@ -224,23 +224,23 @@ print("Outputting censored data...")
 # First output in wide format
 
 # Add columns with originNBH, ethnicity, age, sex, and hhid.
-migrations_wide <- merge(indepvars, mig.type, by="respid", all.x=F, all.y=T)
+migr_wide <- merge(indepvars, mig.type, by="respid", all.x=F, all.y=T)
 # Need to order the data properly for it to be used in MLwiN
-migrations_wide <- migrations_wide[order(migrations_wide$respid),]
-save(migrations_wide, file=paste("data/migration_data_wideformat-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
-write.csv(migrations_wide, file=paste("data/migration_data_wideformat-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)
+migr_wide <- migr_wide[order(migr_wide$respid),]
+save(migr_wide, file=paste("data/migration_data_wideformat-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
+write.csv(migr_wide, file=paste("data/migration_data_wideformat-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)
 
 # Now in long format
-migr_cols <- grep('^migr[0-9]*$', names(migrations_wide))
-age_cols <- grep('^age[0-9]*$', names(migrations_wide))
-hhid_cols <- grep('^hhid[0-9]*$', names(migrations_wide))
+migr_cols <- grep('^migr[0-9]*$', names(migr_wide))
+age_cols <- grep('^age[0-9]*$', names(migr_wide))
+hhid_cols <- grep('^hhid[0-9]*$', names(migr_wide))
 # Now construct the long-format dataset
-migrations_long <- reshape(migrations_wide, idvar="respid", 
+migr_long <- reshape(migr_wide, idvar="respid", 
                              varying=list(migr_cols, age_cols,
                                           hhid_cols), 
                              v.names=c("migr", "age", "hhid"),
                              direction="long", sep="")
-migrations_long <- migrations_long[!is.na(migrations_long$migr),]
-migrations_long <- migrations_long[order(migrations_long$originNBH, migrations_long$respid),]
-save(migrations_long, file=paste("data/migration_data_longformat-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
-write.csv(migrations_long, file=paste("data/migration_data_longformat-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)
+migr_long <- migr_long[!is.na(migr_long$migr),]
+migr_long <- migr_long[order(migr_long$originNBH, migr_long$respid),]
+save(migr_long, file=paste("data/migration_data_longformat-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
+write.csv(migr_long, file=paste("data/migration_data_longformat-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)
