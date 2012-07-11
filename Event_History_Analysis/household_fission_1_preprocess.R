@@ -37,3 +37,16 @@ dominant_household <- function(hh_row) {
     if (length(dominant_HH) > 1) return(NA)
     return(dominant_HH)
 }
+
+make_HHID_window <- function(hh_row, center, width) {
+    # Makes a "window" of household IDs centered on a selected month. Allows 
+    # making a wide dataset of marriages, with a series of household IDs for 
+    # each row with equal width preceding to and following a marriage. Once 
+    # this window is created, the above "dominant_household" function can be 
+    # used to determine if a change in household ID ocurred following a 
+    # marriage.
+    if (!is.null(dim(hh_row))) stop("hh_row cannot have more than 1 dimension")
+    if (((center - width) < 1) || ((center + width) > length(hh_row)))
+        return(NA)
+    hh_row <- hh_row[(center-width):(center+width)]
+}
