@@ -21,16 +21,15 @@ between spouses is realistic.
 Load the data and setup R
 ===============================================================================
 
-.. {r setup_reST_options, echo=FALSE, cache=FALSE}
+.. {r setup_reST_options, echo=FALSE}
 library(knitr)
 # Setup knitr options:
 options(width = 75)
-opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
-    fig.width=4.5, fig.height=3, out.width='4.5in', out.height='3in', dpi=300, 
-    dev='pdf')
+opts_chunk$set(fig.path='rst-figure/', fig.width=4.5, fig.height=3,
+        out.width='4.5in', out.height='3in', dpi=300, dev='pdf')
 .. ..
 
-.. {r setup, results='hide', messages=FALSE, warnings=FALSE, cache=FALSE}
+.. {r setup, results='hide', messages=FALSE, warnings=FALSE}
 library(ggplot2)
 library(mlogit)
 library(arm)
@@ -38,7 +37,7 @@ library(rms) # Note 'Design' package was renamed to "rms"
 theme_update(theme_bw(base_size=10))
 .. ..
 
-.. {r load-data, results='hide', cache=FALSE}
+.. {r load-data, results='hide'}
 load("V:/Nepal/CVFS_R_format/hhrel_with_respIDs.Rdata")
 hhrel <- hhrel_with_respIDs
 
@@ -83,7 +82,7 @@ qplot(sp_age_diff, facets=CENGENDR~., xlab="Age difference in years (self - spou
 
 Setup some age categories for the difference in spouse age.
 .. {r calc-spouse-age-diff-grp}
-hhrel$sp_age_diff_cat <- cut(hhrel$sp_age_diff, breaks=c(-999,-15,-10,-5,-2,-1,0,1,2,5,10,15,999), ordered_result=TRUE)
+hhrel$sp_age_diff_cat <- cut(hhrel$sp_age_diff, breaks=c(-999,-15,-10,-5,-2,0,2,5,10,15,999), ordered_result=TRUE)
 xtabs(~sp_age_diff_cat + age_cat + CENGENDR, data=hhrel)
 .. ..
 
