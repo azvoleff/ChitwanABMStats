@@ -54,7 +54,6 @@ percagveg$log_percagveg <- log(percagveg$percagveg + 1)
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 columns <- grep('^(respid|ethnic)$', names(hhreg))
 hhreg <- hhreg[columns]
-
 hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
         "HillTibeto", "LowHindu", "Newar", "TeraiTibeto", "Other"))
 # Drop "other" ethnicity for consistency with Massey et al. (2010)

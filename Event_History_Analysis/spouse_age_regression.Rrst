@@ -1,0 +1,126 @@
+===============================================================================
+Multinomial regression of spouse characteristics for the ChitwanABM
+===============================================================================
+
+:Author: Alex Zvoleff
+:Email: azvoleff@mail.sdsu.edu
+:Date: July, 2012
+
+Analyzes the relationship grid data from the CVFS to build a multinomial 
+regression predict the probability of marrying a spouse within each of a set of 
+age groups, together with the probability of marrying someone of a different 
+ethnicity.
+
+The results of this analysis are used to inform the marriage process in the 
+ChitwanABM. Once the determination has been made that a woman is marrying 
+(based on the probability derived from event history analysis), the multinomial 
+regression developed here is used to assign a proability of marriage to each 
+possible spouse, based on the age of that person, so that the age differential 
+between spouses is realistic.
+
+Load the data and setup R
+===============================================================================
+
+.. {r setup_reST_options, echo=FALSE, cache=FALSE}
+library(knitr)
+# Setup knitr options:
+options(width = 75)
+opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
+    fig.width=4.5, fig.height=3, out.width='4.5in', out.height='3in', dpi=300, 
+    dev='pdf')
+.. ..
+
+.. {r setup, results='hide', messages=FALSE, warnings=FALSE, cache=FALSE}
+library(ggplot2)
+library(mlogit)
+library(arm)
+library(rms) # Note 'Design' package was renamed to "rms"
+theme_update(theme_bw(base_size=10))
+.. ..
+
+.. {r load-data, results='hide', cache=FALSE}
+load("V:/Nepal/CVFS_R_format/hhrel_with_respIDs.Rdata")
+hhrel <- hhrel_with_respIDs
+
+# Drop "other" ethnicity for consistency with existing work
+hhrel <- hhrel[!(hhrel$ethnic=="Other"),]
+hhrel$ethnic <- factor(hhrel$ethnic)
+hhrel$CENGENDR <- factor(hhrel$CENGENDR)
+
+hhrel$age_cat <- cut(hhrel$CENAGE, breaks=c(0, 15, 20, 30, 40, 50, 60, 999), ordered_result=TRUE)
+.. ..
+
+Basic statistics
+===============================================================================
+
+First look at some basic statistics on who is married, and on how many spouses 
+they have, by gender.
+.. {r multiple-spouses-tables}
+hhrel$HASSPOUSE1 <- !is.na(hhrel$SPOUSE1)
+hhrel$HASSPOUSE2 <- !is.na(hhrel$SPOUSE2)
+hhrel$HASSPOUSE3 <- !is.na(hhrel$SPOUSE3)
+xtabs(~ CENGENDR + HASSPOUSE1, data=hhrel)
+xtabs(~ CENGENDR + HASSPOUSE2, data=hhrel)
+xtabs(~ CENGENDR + HASSPOUSE3, data=hhrel)
+.. ..
+
+Now look at who has more than one spouse (only males do) by age group:
+.. {r multiple-wives-by-age}
+xtabs(~ age_cat + HASSPOUSE2, data=hhrel)
+xtabs(~ age_cat + HASSPOUSE3, data=hhrel)
+.. ..
+
+Having multiple wives is mostly confied to older men. Now look into the 
+difference in spouse age, by gender.
+.. {r calc-spouse-age-differential, fig.cap="Comparison of spouse age difference by gender"}
+spouse1_row <- match(hhrel$SPOUSE1, hhrel$RESPID)
+hhrel$sp_age <- hhrel$CENAGE[spouse1_row]
+hhrel$sp_age_cat <- hhrel$age_cat[spouse1_row]
+hhrel$sp_age_diff <- hhrel$CENAGE - hhrel$sp_age
+xtabs(~age_cat + sp_age_cat, data=hhrel)
+qplot(sp_age_diff, facets=CENGENDR~., xlab="Age difference in years (self - spouse)", data=hhrel)
+.. ..
+
+Setup some age categories for the difference in spouse age.
+.. {r calc-spouse-age-diff-grp}
+hhrel$sp_age_diff_cat <- cut(hhrel$sp_age_diff, breaks=c(-999,-15,-10,-5,-2,-1,0,1,2,5,10,15,999), ordered_result=TRUE)
+xtabs(~sp_age_diff_cat + age_cat + CENGENDR, data=hhrel)
+.. ..
+
+Do people marry outside of their ethnic group?
+.. {r calc-ethnicity-differential, fig.cap="Marriages to other ethnic groups"}
+spouse1_row <- match(hhrel$SPOUSE1, hhrel$RESPID)
+hhrel$spouse_ethnicity <- hhrel$ethnic[spouse1_row]
+xtabs(~ ethnic + spouse_ethnicity, data=hhrel)
+.. ..
+
+Marriages outside of your ethnic group are VERY uncommon. There are only 
+:r:`sum(hhrel$ethnic!=hhrel$spouse_ethnicity, na.rm=TRUE)/2` in the data. So 
+we will disallow these marriages in the model - there are not 
+enough of them to develop any kind of predictive  model of when they might 
+occur.
+
+
+Make a few final summary plots: the mean of spouse_age_diff versus gender, and a histogram of spouse_age_diff by gender.
+.. {r mean-sp-age-diff-versus-age}
+qplot(CENGENDR, sp_age_diff, geom="boxplot", xlab="Gender",
+        ylab="Spouse age difference in years (self - spouse)", data=hhrel)
+.. ..
+
+.. {r sp-age-diff-histogram, fig.cap="Histogram of marriages by spouse age categories and gender"}
+qplot(sp_age_diff_cat, facets=CENGENDR~., geom="histogram", xlab="Gender",
+        ylab="Spouse age difference in years (self - spouse)", 
+        data=hhrel[hhrel$HASSPOUSE1,])
+.. ..
+Multinomial logistic regression predicting spouse age difference based on gender
+================================================================================
+
+.. {r results-mlogit}
+hhrel_mlogit_data <- mlogit.data(hhrel, varying=NULL, choice="sp_age_diff_cat", shape="wide")
+mlogit_spouseage <- mlogit(sp_age_diff_cat ~ 1 | CENGENDR, data=hhrel_mlogit_data)
+summary(mlogit_spouseage)
+mlogit_spouseage_odds <- cbind(odds_ratio=exp(coef(mlogit_spouseage)), exp(confint.default(mlogit_spouseage)))
+(mlogit_spouseage_odds <- round(mlogit_spouseage_odds, 4))
+write.csv(coef(mlogit_spouseage), file="mlogit_spouseage_coefs.csv")
+write.csv(mlogit_spouseage_odds, file="mlogit_spouseage_odds.csv")
+.. ..
