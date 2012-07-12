@@ -23,7 +23,6 @@ LAST.MONTH <- 90 # Yabiku (2006) uses 90 months
 # Recode the data as necessary and setup the marit_status matrix for later 
 # censoring.
 ###############################################################################
-#load("/media/Local_Secure/CVFS_R_format/hhreg.Rdata")
 print("Loading data...")
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 # Drop the appropriate monthly columns if LAST.MONTH is < 126
