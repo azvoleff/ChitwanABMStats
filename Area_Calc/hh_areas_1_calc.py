@@ -5,6 +5,7 @@ import os
 import numpy as np
 
 hh_areas_raw = []
+NIDs = []
 for root, dirs, files in os.walk("V:/Nepal/CVFS_LULC_Mapping/T1_BND_Files"):
     for file in files:
         filepath = os.path.join(root, file)
@@ -18,7 +19,9 @@ for root, dirs, files in os.walk("V:/Nepal/CVFS_LULC_Mapping/T1_BND_Files"):
             if 'acre' in line.lower():
                 hh_areas_line = line
                 break
-        if household_flag == True: hh_areas_raw.append(hh_areas_line)
+        if household_flag == True:
+            hh_areas_raw.append(hh_areas_line)
+            NIDs.append(os.path.basename(root))
 
 hh_areas = []
 for line in hh_areas_raw:
@@ -33,9 +36,9 @@ for line in hh_areas_raw:
     hh_areas.append(area)
 
 outfile = open("hh_areas_T1_sq_meters.csv", "w")
-outfile.write("area\n")
-for area in hh_areas:
-    outfile.write(str(area) + "\n")
+outfile.write("area,NEIGHID\n")
+for NID, area in zip(NIDs, hh_areas):
+    outfile.write(str(area) + ',"' + str(NID)  + '"\n')
 outfile.close()
 
 print "Mean area:", np.mean(hh_areas)

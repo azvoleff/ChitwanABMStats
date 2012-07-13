@@ -1,7 +1,5 @@
 #!/usr/bin/Rscript
-# Plots the LULC data from a model run.
 require(ggplot2)
-require(MASS)
 
 theme_update(theme_grey(base_size=18))
 update_geom_defaults("line", aes(size=1))
@@ -16,6 +14,7 @@ make_txtprob <- function(probs, binlims, param.name) {
 }
 
 hh_areas <- read.csv("hh_areas_T1_sq_meters.csv")
+hh_areas <- hh_areas[hh_areas$NEIGHID <= 151,]
 
 qplot(hh_areas$area, geom="histogram",
         xlab="Area of Household Plot (square meters)", ylab="Count")
@@ -27,7 +26,7 @@ qplot(hh_areas$area, geom="histogram", xlab="Area of Household Plot (square mete
       ylab="Count")
 ggsave("hh_areas_T1_hist_cut.png", width=8.33, height=5.53, dpi=300)
 
-hh_areas_binned <- hist(hh_areas$area, plot=FALSE)
+hh_areas_binned <- hist(hh_areas$area, breaks=10, plot=FALSE)
 lim_upper <- hh_areas_binned$breaks[2:length(hh_areas_binned$breaks)]
 hh_areas_prob <- data.frame(lim_upper=lim_upper,
         prob=hh_areas_binned$counts)
