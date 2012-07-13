@@ -11,10 +11,14 @@ for root, dirs, files in os.walk("V:/Nepal/CVFS_LULC_Mapping/T1_BND_Files"):
         fid = open(filepath, 'r')
         filetext = fid.readlines()
         fid.close()
+        household_flag = False
         for line in filetext:
+            if 'household' in line.lower():
+                household_flag = True
             if 'acre' in line.lower():
-                hh_areas_raw.append(line)
+                hh_areas_line = line
                 break
+        if household_flag == True: hh_areas_raw.append(hh_areas_line)
 
 hh_areas = []
 for line in hh_areas_raw:
