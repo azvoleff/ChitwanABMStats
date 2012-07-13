@@ -1,12 +1,23 @@
 #!/usr/bin/env python
 # First run list_hh_areas.py to write out the hh_areas.txt text file.
 
+import os
 import numpy as np
-import csv
 
-hh_file_list = open("hh_areas.txt", "r")
+hh_areas_raw = []
+for root, dirs, files in os.walk("V:/Nepal/CVFS_LULC_Mapping/T1_BND_Files"):
+    for file in files:
+        filepath = os.path.join(root, file)
+        fid = open(filepath, 'r')
+        filetext = fid.readlines()
+        fid.close()
+        for line in filetext:
+            if 'acre' in line.lower():
+                hh_areas_raw.append(line)
+                break
+
 hh_areas = []
-for line in hh_file_list:
+for line in hh_areas_raw:
     line = line.strip('\r\n ')
     line = line.replace('Acres', '')
     line = line.replace('Area', '')
@@ -15,8 +26,11 @@ for line in hh_file_list:
     area = float(line)
     # Convert area in acres to area in square meters
     area = area * 4046.85642
+    if area > 1000:
+        # Skip areas over 2000 - these are most likely multiple households that 
+        # were mapped as a single unit
+        continue
     hh_areas.append(area)
-hh_file_list.close()
 
 outfile = open("hh_areas_T1_sq_meters.csv", "w")
 outfile.write("area\n")
