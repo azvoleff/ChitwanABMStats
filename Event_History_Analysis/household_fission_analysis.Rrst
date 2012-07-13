@@ -165,7 +165,7 @@ Total marriages: :r:`nrow(marit_long)`.  Total males
 :r:`sum(marit_long$gender=="female")`.
 
 .. {r plot_marriages, fig.cap="First marriages"}
-xtabs(~ gender + left_sample, exclude=NULL, data=marit_long)
+xtabs(~ gender + marit, exclude=NULL, data=marit_long)
 qplot(gender, data=marit_long)
 .. ..
 
