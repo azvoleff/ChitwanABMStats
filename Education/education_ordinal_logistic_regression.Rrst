@@ -81,6 +81,7 @@ educdata$father_school[educdata$father_school < 0] <- NA
 
 educdata <- merge(educdata, hhreg, all.x=TRUE, all.y=FALSE)
 educdata <- merge(educdata, percagveg)
+educdata_all_respondents <- educdata 
 educdata <- educdata[educdata$age >= 25 &  educdata$age <= 30,]
 
 # Load neighborhood history data to get minutes on foot to nearest school
@@ -116,13 +117,23 @@ with(educdata, xtabs(~ schooling_cat + mother_school))
 with(educdata, xtabs(~ schooling_cat + father_school))
 .. ..
 
-Don't include distance in minutes on foot to a school as a cvariate as every 
+Don't include distance in minutes on foot to a school as a covariate as every 
 neighborhood has a school close by. The max distance in minutes on foot is only 
 :r:`max(neighhist$schlftmin1996)`, and the mean distance in minutes on foot is 
 :r:`mean(neighhist$schlftmin1996)`.
 
 .. {r schlftmin-table}
 table(neighhist$schlftmin1996)
+.. ..
+
+When do people start school? Plot the years of schooling obtained for people 
+from age 0-10 to see the earliest people start have years of schooling 
+reported.
+.. {r start-schooling-age}
+children_rows <- educdata_all_respondents$age <= 20
+max_start_age <- educdata_all_respondents$age - educdata_all_respondents$schooling
+table(max_start_age)
+xtabs(~ schooling + age, data=educdata_all_respondents[children_rows,])
 .. ..
 
 Results
@@ -135,9 +146,9 @@ First try an ordinal logistic regression using `lrm` from the `rms` package.
 .. {r results-lrm}
 educdata_dist <- with(educdata, datadist(gender, ethnic, log_percagveg))
 options(datadist='educdata_dist')
-lrm_schooling_cat <- lrm(schooling_cat ~ gender + ethnic + log_percagveg, data=educdata)
+(lrm_schooling_cat <- lrm(schooling_cat ~ gender + ethnic + log_percagveg, 
+        data=educdata))
 summary(lrm_schooling_cat)
-anova(lrm_schooling_cat)
 lrm_schooling_cat_odds <- cbind(odds_ratio=exp(coef(lrm_schooling_cat)), exp(confint.default(lrm_schooling_cat)))
 (lrm_schooling_cat_odds <- round(lrm_schooling_cat_odds, 4))
 write.csv(summary(lrm_schooling_cat), file="lrm_schooling_cat.csv")
