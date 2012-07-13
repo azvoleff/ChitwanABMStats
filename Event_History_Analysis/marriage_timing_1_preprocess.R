@@ -40,18 +40,18 @@ age_cols <- grep('^age[0-9]*$', names(hhreg))
 
 # Load the LULC data:
 lu <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
-land.agveg <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
-land.nonagveg <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
-land.privbldg <- with(lu, rowSums(cbind(HHRESID1, MILL1, OTRBLD1)))
-land.pubbldg <- with(lu, rowSums(cbind(ROAD1, SCHOOL1, TEMPLE1)))
-land.other <- with(lu, rowSums(cbind(CANAL1, POND1, RIVER1, SILT1, UNDVP1)))
-lu.processed <- data.frame(NEIGHID=lu$NEIGHID, land.agveg, land.nonagveg, land.privbldg, land.pubbldg, land.other)
+land_agveg <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
+land_nonagveg <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
+land_privbldg <- with(lu, rowSums(cbind(HHRESID1, MILL1, OTRBLD1)))
+land_pubbldg <- with(lu, rowSums(cbind(ROAD1, SCHOOL1, TEMPLE1)))
+land_other <- with(lu, rowSums(cbind(CANAL1, POND1, RIVER1, SILT1, UNDVP1)))
+lu <- data.frame(NEIGHID=lu$NEIGHID, land_agveg, land_nonagveg, land_privbldg, land_pubbldg, land_other)
 # Convert land areas expressed in square feet to square meters
-lu.processed[2:6]  <- lu.processed[2:6] * .09290304
-lu.processed$NEIGHID <- as.numeric(lu.processed$NEIGHID)
-lu.processed$land.total <- apply(lu.processed[2:6], 1, sum)
-percagveg <- with(lu.processed, data.frame(neighid=NEIGHID, percagveg=(land.agveg/land.total)*100))
-percagveg$log_percagveg <- log(percagveg$percagveg + 1)
+lu[2:6]  <- lu[2:6] * .09290304
+lu$NEIGHID <- as.numeric(lu$NEIGHID)
+lu$land_total <- apply(lu[2:6], 1, sum)
+lu$percagveg <- with(lu, data.frame(neighid=NEIGHID, percagveg=(land_agveg/land_total)*100))
+lu$log_percagveg <- log(lu$percagveg + 1)
 
 hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
 hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
