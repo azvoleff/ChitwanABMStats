@@ -16,8 +16,8 @@ library(ggplot2)
 library(foreign)
 
 # Months.total is how many months of the household registry to include (max 
-# number of months is 126, so to include all the months set LAST.MONTH to 126).
-LAST.MONTH <- 90 # Yabiku (2006) uses 90 months
+# number of months is 126, so to include all the months set LAST_MONTH to 126).
+LAST_MONTH <- 90 # Yabiku (2006) uses 90 months
 
 ###############################################################################
 # Recode the data as necessary and setup the marit_status matrix for later 
@@ -25,11 +25,11 @@ LAST.MONTH <- 90 # Yabiku (2006) uses 90 months
 ###############################################################################
 print("Loading data...")
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
-# Drop the appropriate monthly columns if LAST.MONTH is < 126
+# Drop the appropriate monthly columns if LAST_MONTH is < 126
 varying_cols <- grep('^[a-zA-Z]*[1-9][0-9]{0,2}$', names(hhreg))
 varying_cols_times <- as.numeric(gsub('[a-zA-Z]', '', names(hhreg)[varying_cols]))
-if (LAST.MONTH < max(varying_cols_times)) {
-    drop_cols <- varying_cols[varying_cols_times > LAST.MONTH]
+if (LAST_MONTH < max(varying_cols_times)) {
+    drop_cols <- varying_cols[varying_cols_times > LAST_MONTH]
     hhreg <- hhreg[-drop_cols]
 }
 
@@ -40,18 +40,52 @@ age_cols <- grep('^age[0-9]*$', names(hhreg))
 
 # Load the LULC data:
 lu <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
-land_agveg <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
-land_nonagveg <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
-land_privbldg <- with(lu, rowSums(cbind(HHRESID1, MILL1, OTRBLD1)))
-land_pubbldg <- with(lu, rowSums(cbind(ROAD1, SCHOOL1, TEMPLE1)))
-land_other <- with(lu, rowSums(cbind(CANAL1, POND1, RIVER1, SILT1, UNDVP1)))
-lu <- data.frame(NEIGHID=lu$NEIGHID, land_agveg, land_nonagveg, land_privbldg, land_pubbldg, land_other)
+land_agveg_t1 <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
+land_nonagveg_t1 <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
+land_privbldg_t1 <- with(lu, rowSums(cbind(HHRESID1, MILL1, OTRBLD1)))
+land_pubbldg_t1 <- with(lu, rowSums(cbind(ROAD1, SCHOOL1, TEMPLE1)))
+land_other_t1 <- with(lu, rowSums(cbind(CANAL1, POND1, RIVER1, SILT1, UNDVP1)))
+lu_t1 <- data.frame(NEIGHID=lu$NEIGHID, land_agveg=land_agveg_t1, 
+                    land_nonagveg=land_nonagveg_t1, 
+                    land_privbldg=land_privbldg_t1, 
+                    land_pubbldg=land_pubbldg_t1, land_other=land_other_t1)
 # Convert land areas expressed in square feet to square meters
-lu[2:6]  <- lu[2:6] * .09290304
-lu$NEIGHID <- as.numeric(lu$NEIGHID)
-lu$land_total <- apply(lu[2:6], 1, sum)
-lu$percagveg <- with(lu, data.frame(neighid=NEIGHID, percagveg=(land_agveg/land_total)*100))
+lu_t1[2:6]  <- lu_t1[2:6] * .09290304
+lu_t1$NEIGHID <- as.numeric(lu_t1$NEIGHID)
+lu_t1$land_total <- apply(lu_t1[2:6], 1, sum)
+lu_t1$percagveg <- with(lu_t1, (land_agveg/land_total)*100)
+
+land_agveg_t2 <- with(lu, rowSums(cbind(BARI2, IKHET2, RKHET2)))
+land_nonagveg_t2 <- with(lu, rowSums(cbind(GRASSC2, GRASSP2, PLANTC2, PLANTP2)))
+land_privbldg_t2 <- with(lu, rowSums(cbind(HHRESID2, MILL2, OTRBLD2)))
+land_pubbldg_t2 <- with(lu, rowSums(cbind(ROAD2, SCHOOL2, TEMPLE2)))
+land_other_t2 <- with(lu, rowSums(cbind(CANAL2, POND2, RIVER2, SILT2, UNDVP2)))
+lu_t2 <- data.frame(NEIGHID=lu$NEIGHID, land_agveg=land_agveg_t2, 
+                    land_nonagveg=land_nonagveg_t2, 
+                    land_privbldg=land_privbldg_t2, 
+                    land_pubbldg=land_pubbldg_t2, land_other=land_other_t2)
+# Convert land areas expressed in square feet to square meters
+lu_t2[2:6]  <- lu_t2[2:6] * .09290304
+lu_t2$NEIGHID <- as.numeric(lu_t2$NEIGHID)
+lu_t2$land_total <- apply(lu_t2[2:6], 1, sum)
+lu_t2$percagveg <- with(lu_t2, (land_agveg/land_total)*100)
+
+# Now make linear interpolation from month 1 up to month LAST_MONTH, in wide format, 
+# for each neighborhood. Note that 40 months is the average time between the T1 
+# and T2 mapping.
+rt_chg <- (lu_t2$percagveg - lu_t1$percagveg)/40
+rt_chg_matrix <- matrix(rep(rt_chg,LAST_MONTH), nrow=nrow(lu_t2))
+initial_percagveg <- matrix(rep(lu_t1$percagveg,LAST_MONTH), ncol=LAST_MONTH)
+months_matrix <- matrix(seq(1,LAST_MONTH), ncol=LAST_MONTH, nrow=nrow(lu_t2), byrow=TRUE)
+interp_percagveg <- initial_percagveg + (rt_chg_matrix * months_matrix)
+interp_percagveg[interp_percagveg<0] <- 0
+interp_percagveg[interp_percagveg>100] <- 100
+interp_percagveg <- data.frame(NEIGHID=lu_t2$NEIGHID, interp_percagveg)
+
+names(interp_percagveg)[2:ncol(interp_percagveg)] <- paste("percagveg", seq(1:LAST_MONTH), sep="")
+
 lu$log_percagveg <- log(lu$percagveg + 1)
+lu_vars <- with(lu, data.frame(NEIGHID, percagveg, log_percagveg))
 
 hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
 hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
@@ -91,6 +125,7 @@ marit_status <- marit_status[in_sample,]
 indepvars <- cbind(respid=hhreg$respid, hhreg[hhid_cols], hhreg[place_cols], ethnic=hhreg$ethnic, gender=hhreg$gender, hhreg[age_cols], originalHH=hhreg$hhid1, originalNBH=hhreg$place1)
 indepvars <- indepvars[in_sample,]
 
+indepvars <- merge(indepvars, lu_vars, by.x="originalNBH", by.y="NEIGHID", all.x=TRUE)
 ###############################################################################
 # Censor the data
 ###############################################################################
@@ -145,8 +180,8 @@ print("Outputting censored data...")
 marit_wide <- merge(indepvars, marit_status, by="respid", all.x=F, all.y=T)
 # Need to order the data properly for it to be used in MLwiN
 marit_wide <- marit_wide[order(marit_wide$respid, marit_wide$originalHH, marit_wide$originalNBH),]
-save(marit_wide, file=paste("data/marriage_data-wideformat-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
-write.csv(marit_wide, file=paste("data/marriage_data-wideformat-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
+save(marit_wide, file=paste("data/marriage_data-wideformat-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
+write.csv(marit_wide, file=paste("data/marriage_data-wideformat-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)
 
 # Now in long format
 marit_cols <- grep('^marit[0-9]*$', names(marit_wide))
@@ -161,5 +196,5 @@ marit_long <- reshape(marit_wide, idvar="respid",
                              direction="long", sep="")
 marit_long <- marit_long[!is.na(marit_long$marit),]
 marit_long <- marit_long[order(marit_long$respid, marit_long$originalHH, marit_long$originalNBH),]
-save(marit_long, file=paste("data/marriage_data-longformat-up_to_month_", LAST.MONTH, ".Rdata", sep=""))
-write.csv(marit_long, file=paste("data/marriage_data-longformat-up_to_month_", LAST.MONTH, ".csv", sep=""), row.names=FALSE)
+save(marit_long, file=paste("data/marriage_data-longformat-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
+write.csv(marit_long, file=paste("data/marriage_data-longformat-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)
