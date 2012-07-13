@@ -111,8 +111,24 @@ qplot(sp_age_diff_cat, facets=CENGENDR~., geom="histogram", xlab="Gender",
         ylab="Spouse age difference in years (self - spouse)", 
         data=hhrel[hhrel$HASSPOUSE1,])
 .. ..
+
+Probability distribution for men marrying women of varying age differences
+===============================================================================
+.. {r sp-age-diff-prob-dist, fig.cap="Histogram of marriages by spouse age categories and gender"}
+married_men_rows <- (hhrel$CENGENDR =="male") & hhrel$HASSPOUSE1
+table(married_men_rows)
+male_marr_prob <- with(hhrel[married_men_rows, ], table(sp_age_diff_cat))
+(male_marr_prob <- male_marr_prob / sum(male_marr_prob))
+.. ..
+
 Multinomial logistic regression predicting spouse age difference based on gender
 ================================================================================
+
+.. note:: The multinomial logit is NOT used in the ChitwanABMInstead the 
+    simpler approach of a probability distribution of husbands age minus wifes 
+    age is used to assign probabilities to each man of marrying each woman. 
+    This simpler approach should be equivalent, for the case of gender as the 
+    single predictor, to using the multinomial logit outlined below.
 
 .. {r results-mlogit}
 hhrel_mlogit_data <- mlogit.data(hhrel, varying=NULL, choice="sp_age_diff_cat", shape="wide")
