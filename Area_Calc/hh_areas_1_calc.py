@@ -30,10 +30,6 @@ for line in hh_areas_raw:
     area = float(line)
     # Convert area in acres to area in square meters
     area = area * 4046.85642
-    if area > 1000:
-        # Skip areas over 2000 - these are most likely multiple households that 
-        # were mapped as a single unit
-        continue
     hh_areas.append(area)
 
 outfile = open("hh_areas_T1_sq_meters.csv", "w")

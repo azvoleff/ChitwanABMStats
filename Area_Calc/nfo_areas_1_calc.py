@@ -53,7 +53,7 @@ for area, type in zip(nfo_areas_raw, nfo_types_raw):
         type = "health"
     nfo_types.append(type)
 
-outfile = open("nfo_areas_T1_sq_meters.csv", "w")
+outfile = open("nfo_areas_T3_sq_meters.csv", "w")
 csv_writer = csv.writer(outfile)
 csv_writer.writerow(["area", "nfo_type"])
 for area, type in zip(nfo_areas, nfo_types):
