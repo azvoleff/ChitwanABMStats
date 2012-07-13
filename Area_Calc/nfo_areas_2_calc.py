@@ -1,14 +1,35 @@
 #!/usr/bin/env python
 # First run list_nfo_areas.py to write out the nfo_areas.txt text file.
 
-import numpy as np
+import os
+import re
 import csv
 
-nfo_area_file = open("nfo_areas.txt", "r")
-nfo_type_file = open("nfo_areas_types.txt", "r")
+import numpy as np
+
+nfo_areas_raw = []
+nfo_types_raw = []
+for root, dirs, files in os.walk("V:/Nepal/CVFS_LULC_Mapping/BND_Files/T3"):
+    for file in files:
+        filepath = os.path.join(root, file)
+        fid = open(filepath, 'r')
+        filetext = fid.readlines()
+        fid.close()
+        nfo_flag = False
+        for line in filetext:
+            if re.search('school|temple|church|health|medic', line.lower()) != None:
+                nfo_flag = True
+            if 'acre' in line.lower():
+                nfo_areas_line = line
+            if 'land parcel' in line.lower():
+                nfo_area_types_line = line
+        if nfo_flag == True:
+            nfo_areas_raw.append(nfo_areas_line)
+            nfo_types_raw.append(nfo_area_types_line)
+
 nfo_areas = []
 nfo_types = []
-for area, type in zip(nfo_area_file, nfo_type_file):
+for area, type in zip(nfo_areas_raw, nfo_types_raw):
     area = area.strip('\r\n ')
     area = area.replace('Acres', '')
     area = area.replace('Area', '')
@@ -31,8 +52,6 @@ for area, type in zip(nfo_area_file, nfo_type_file):
     if "health" in type.lower() or "medic" in type.lower():
         type = "health"
     nfo_types.append(type)
-nfo_area_file.close()
-nfo_type_file.close()
 
 outfile = open("nfo_areas_T1_sq_meters.csv", "w")
 csv_writer = csv.writer(outfile)
