@@ -80,12 +80,9 @@ months_matrix <- matrix(seq(1,LAST_MONTH), ncol=LAST_MONTH, nrow=nrow(lu_t2), by
 interp_percagveg <- initial_percagveg + (rt_chg_matrix * months_matrix)
 interp_percagveg[interp_percagveg<0] <- 0
 interp_percagveg[interp_percagveg>100] <- 100
-interp_percagveg <- data.frame(NEIGHID=lu_t2$NEIGHID, interp_percagveg)
-
-names(interp_percagveg)[2:ncol(interp_percagveg)] <- paste("percagveg", seq(1:LAST_MONTH), sep="")
-
-lu$log_percagveg <- log(lu$percagveg + 1)
-lu_vars <- with(lu, data.frame(NEIGHID, percagveg, log_percagveg))
+interp_logpercagveg <- log(interp_percagveg + 1)
+interp_logpercagveg <- data.frame(NEIGHID=lu_t2$NEIGHID, interp_logpercagveg)
+names(interp_logpercagveg)[2:ncol(interp_logpercagveg)] <- paste("logpercagveg", seq(1:LAST_MONTH), sep="")
 
 hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
 hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
@@ -123,9 +120,9 @@ marit_status <- marit_status[in_sample,]
 # including the neighborhood and household IDs, for each person, and some other 
 # covariates.
 indepvars <- cbind(respid=hhreg$respid, hhreg[hhid_cols], hhreg[place_cols], ethnic=hhreg$ethnic, gender=hhreg$gender, hhreg[age_cols], originalHH=hhreg$hhid1, originalNBH=hhreg$place1)
+indepvars <- merge(indepvars, interp_logpercagveg, by.x="originalNBH", by.y="NEIGHID", all.x=TRUE)
 indepvars <- indepvars[in_sample,]
 
-indepvars <- merge(indepvars, lu_vars, by.x="originalNBH", by.y="NEIGHID", all.x=TRUE)
 ###############################################################################
 # Censor the data
 ###############################################################################
