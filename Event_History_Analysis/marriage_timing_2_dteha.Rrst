@@ -43,18 +43,12 @@ marit_long$ethnic <- factor(marit_long$ethnic)
 # glmer), try categorizing age by decade, converting time to decades and try 
 # adding a continuous age variable in decades. This makes the betas on age and 
 # time larger and helps stabilizes the optimization algorithm.
-marit_long <- marit_long
 marit_long$timeyears <- marit_long$time/12
 marit_long$agedecades <- marit_long$age/10
 
-# Setup function to calculate odds ratios and confidence intervals from glmer 
-# output:
-logistic_display_glmer <- function(glmer.model) {
-   coefs <- summary(glmer.model)@coefs
-   data.frame(OR=exp(coefs[,1]),
-              Lower=exp(coefs[,1]-1.96*coefs[,2]),
-              Upper=exp(coefs[,1]+1.96*coefs[,2]))
-}
+# Create a monthly factor that can be used to remove the effects of seasonal 
+# variation in marriage rates
+marit_long$month <- factor(marit_long$time %% 12 + 1)
 .. ..
 
 Basic Statistics
@@ -74,6 +68,32 @@ data collection (when all are unmarried)
 qplot(age, geom="bar", data=marit_long[marit_long$time==1,], xlab="Age in Month Zero", ylab="Number of Respondents")
 .. ..
 
+Also plot the age at marriage
+
+.. note:: This sample only includes 90 months of data from people who were 
+          15-20 in 1996, so the max possible age at marriage in this sample is 
+          25. When tested with a sample including those from age 15-90, the 
+          number of marriages by age is:
+          
+          ``>table(marit_long[marit_long$marit==1,]$age)
+          15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 34 35 41      
+          1 12 26 53 71 69 66 79 56 54 38 29 17  8 12  4  4  1  1  1  1``
+          
+          Given that there are so few marriages of those above age 30, the 
+          assumption is made in the ChitwanABM that if you are not married by 
+          age 30, you will not be getting married. Hence there is a 
+          "maximum_marriage_age" parameter in the model
+
+.. {r age-at-marriage, fig.cap="Age at first marriage"}
+qplot(age, geom="bar", data=marit_long[marit_long$marit==1,], xlab="Age", ylab="Number of Marriages")
+table(marit_long[marit_long$marit==1,]$age)
+.. ..
+
+Note that marriage is seasonal, so include a dummy variables for each month later on in the models:
+.. {r marriages-month-hist}
+qplot(month, geom="bar", data=marit_long[marit_long$marit==1,], xlab="Month", ylab="Number of Marriages")
+.. ..
+
 Check cross tabs of marit with the categorical predictors:
 .. {r basic_stats_xtab_covariates}
 xtabs(~ marit_long$age + marit_long$marit, exclude=NULL)
@@ -82,6 +102,11 @@ xtabs(~ marit_long$marit + marit_long$gender, exclude=NULL)
 with(marit_long, xtabs(~ age + ethnic + gender, exclude=NULL))
 .. ..
 
+Now make a quick plot of a histogram of log(percent agricultural vegetation + 
+1), for the first month:
+.. {r basic_stats_logpercagveg, fig.cap="log(percent ag. veg. + 1) for month 1"}
+qplot(marit_long[marit_long$time==1,]$logpercagveg, geom="histogram")
+.. ..
 
 Discrete-time Event History Models
 ===============================================================================
@@ -89,48 +114,49 @@ Discrete-time Event History Models
 Fixed effect model
 _______________________________________________________________________________
 
-.. {r marr_fixed}
-marr_fixed <- glm(marit ~ ethnic + gender + age + timeyears + I(timeyears**2),
-                    data=marit_long, family=binomial)
+Do two fixed effects models. First do a GLM with age in years, then a GLM with 
+age in decades. Yabiku (2006) presents results with age in years, but the 
+``glmer`` optimization routine wouldn't converge unless age was rescaled to 
+decades. So do a GLM with age in years for comparison with the Yabiku (2006) 
+results, but use age in decades for the final model to be included in the ABM.
+
+.. {r marr_fixed_ageyears}
+marr_fixed <- glm(marit ~ ethnic + gender + age + I(age^2) + logpercagveg + 
+                    schooling_yrs + month, data=marit_long, family=binomial)
 save(marr_fixed, file="models/migration_marr_fixed.Rdata")
 summary(marr_fixed)
 (marr_fixed_results <- logistic.display(marr_fixed))
 write.csv(marr_fixed_results$table, file="models/migration_marr_fixed_odds.csv")
 .. ..
 
+.. {r marr_fixed_agedecades}
+marr_fixed_agedecades <- glm(marit ~ ethnic + gender + agedecades + I(agedecades^2) + logpercagveg + 
+                    schooling_yrs + month, data=marit_long, family=binomial)
+save(marr_fixed_agedecades, file="models/migration_marr_fixed_agedecades.Rdata")
+summary(marr_fixed_agedecades)
+(marr_fixed_agedecades_results <- logistic.display(marr_fixed_agedecades))
+write.csv(marr_fixed_agedecades_results$table, file="models/migration_marr_fixed_agedecades_odds.csv")
+.. ..
+
 Mixed-effects model - random intercept at neighborhood level
 _______________________________________________________________________________
 .. {r marr_2level}
-(marr_2level <- glmer(marit ~ ethnic + gender + age + timeyears + I(timeyears**2) +
-                        (1 | originalNBH), data=marit_long, family=binomial))
+(marr_2level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + logpercagveg + 
+                        schooling_yrs + month + (1 | originalNBH), data=marit_long, 
+                        family=binomial))
+(marr_2level_or <- round(exp(fixef(marr_2level)), 4))
 save(marr_2level, file="models/migration_marr_2level.Rdata")
-(marr_2level_results <- logistic_display_glmer(marr_2level))
-write.csv(marr_2level_results, file="models/migration_marr_2level_odds.csv")
-.. ..
-
-Now try a fit using ``glmmML`` from ``eha``:
-.. {r marr_2level_glmmML}
-library(eha)
-(marr_2level_glmmML <- glmmML(marit ~ ethnic + gender + age + timeyears + I(timeyears**2),
-                        cluster=originalNBH, data=marit_long, family=binomial))
-.. ..
-
-Now try with ``MCMCglmm`` from ``MCMCglmm``:
-.. {r marr_2level_MCMCglmm}
-library(MCMCglmm)
-(marr_2level_MCMCglmm <-MCMCglmm(marit ~ ethnic + gender + age + timeyears + I(timeyears**2),
-                        random=~originalNBH, data=marit_long, family=binomial))
+write.csv(marr_2level_or, file="models/migration_marr_2level_odds.csv")
 .. ..
 
 Mixed-effects model - random intercepts at individual and neighborhood levels
 _______________________________________________________________________________
 .. {r marr_3level}
 library(languageR)
-(marr_3level <- glmer(marit ~ ethnic + gender + age + timeyears + I(timeyears**2) +
-                        (1 | respid) + (1 | originalNBH), data=marit_long, 
-                        family=binomial))
-marr_3level_mcmc <- pvals.fnc(marr_3level, nsim=1000)
+(marr_3level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + logpercagveg + 
+                        schooling_yrs + month + (1 | respid) +
+                        (1 | originalNBH), data=marit_long, family=binomial))
 save(marr_3level, file="models/migration_marr_3level.Rdata")
-(marr_3level_results <- logistic_display_glmer(marr_3level))
-write.csv(marr_3level_results, file="models/migration_marr_3level_odds.csv")
+(marr_3level_or <- round(exp(fixef(marr_3level)), 4))
+write.csv(marr_3level_or, file="models/migration_marr_3level_odds.csv")
 .. ..

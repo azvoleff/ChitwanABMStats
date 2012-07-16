@@ -84,6 +84,18 @@ interp_logpercagveg <- log(interp_percagveg + 1)
 interp_logpercagveg <- data.frame(NEIGHID=lu_t2$NEIGHID, interp_logpercagveg)
 names(interp_logpercagveg)[2:ncol(interp_logpercagveg)] <- paste("logpercagveg", seq(1:LAST_MONTH), sep="")
 
+t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+# To merge with the hhreg data, need to convert the old format respondent ID 
+# (NNNHHSS) (where NNN is NBH ID, HH is household ID, and SS is subject ID) to 
+# NNNHHHSSS:
+old_respID <- sprintf("%07i", t1indiv$RESPID)
+NBHID <- sprintf("%03i", as.numeric(substr(old_respID,1,3)))
+HHID <- sprintf("%03i", as.numeric(substr(old_respID,4,5)))
+SUBJID <- sprintf("%03i", as.numeric(substr(old_respID,6,7)))
+t1indiv$RESPID <- paste(NBHID, HHID, SUBJID, sep="")
+educdata <- with(t1indiv, data.frame(respid=RESPID, schooling_yrs=A1))
+hhreg <- merge(hhreg, educdata, all.x=TRUE)
+
 hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
 hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
         "HillTibeto", "LowHindu", "Newar", "TeraiTibeto", "Other"))
@@ -119,9 +131,9 @@ marit_status <- marit_status[in_sample,]
 # Save the variables that will be needed later as independent variables, 
 # including the neighborhood and household IDs, for each person, and some other 
 # covariates.
-indepvars <- cbind(respid=hhreg$respid, hhreg[hhid_cols], hhreg[place_cols], ethnic=hhreg$ethnic, gender=hhreg$gender, hhreg[age_cols], originalHH=hhreg$hhid1, originalNBH=hhreg$place1)
-indepvars <- merge(indepvars, interp_logpercagveg, by.x="originalNBH", by.y="NEIGHID", all.x=TRUE)
+indepvars <- cbind(respid=hhreg$respid, hhreg[hhid_cols], hhreg[place_cols], ethnic=hhreg$ethnic, gender=hhreg$gender, hhreg[age_cols], originalHH=hhreg$hhid1, originalNBH=hhreg$place1, schooling_yrs=hhreg$schooling_yrs)
 indepvars <- indepvars[in_sample,]
+indepvars <- merge(indepvars, interp_logpercagveg, by.x="originalNBH", by.y="NEIGHID", all.x=TRUE)
 
 ###############################################################################
 # Censor the data
@@ -184,12 +196,15 @@ write.csv(marit_wide, file=paste("data/marriage_data-wideformat-up_to_month_", L
 marit_cols <- grep('^marit[0-9]*$', names(marit_wide))
 age_cols <- grep('^age[0-9]*$', names(marit_wide))
 hhid_cols <- grep('^hhid[0-9]*$', names(marit_wide))
+logpercagveg_cols <- grep('^logpercagveg[0-9]*$', names(marit_wide))
 place_cols <- grep('^place[0-9]*$', names(marit_wide))
 # Now construct the long-format dataset
 marit_long <- reshape(marit_wide, idvar="respid", 
                              varying=list(marit_cols, age_cols,
-                                          hhid_cols, place_cols), 
-                             v.names=c("marit", "age", "hhid", "place"),
+                                          hhid_cols, place_cols, 
+                                          logpercagveg_cols), 
+                      v.names=c("marit", "age", "hhid", "place", 
+                                "logpercagveg"),
                              direction="long", sep="")
 marit_long <- marit_long[!is.na(marit_long$marit),]
 marit_long <- marit_long[order(marit_long$respid, marit_long$originalHH, marit_long$originalNBH),]
