@@ -124,7 +124,7 @@ male_marr_prob <- with(hhrel[married_men_rows, ], table(sp_age_diff_cat))
 Multinomial logistic regression predicting spouse age difference based on gender
 ================================================================================
 
-.. note:: The multinomial logit is NOT used in the ChitwanABMInstead the 
+.. note:: The multinomial logit is NOT used in the ChitwanABM. Instead the 
     simpler approach of a probability distribution of husbands age minus wifes 
     age is used to assign probabilities to each man of marrying each woman. 
     This simpler approach should be equivalent, for the case of gender as the 
