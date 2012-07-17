@@ -137,7 +137,9 @@ recent_births <- data.frame(RESPID=lhc$RESPID, recent_birth)
 hhrel <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0016_REST.xpt")
 # Exclude neighborhoods 152-172
 hhrel <- hhrel[hhrel$NEIGHID <= 151,]
-hhrel_processed  <- with(hhrel, data.frame(RESPID, HHID, SUBJECT, PARENT1, PARENT2, SPOUSE1, SPOUSE2, SPOUSE3))
+hhrel_cols <- grep('^(RESPID|HHID|SUBJECT|PARENT[1-2]|SPOUSE[1-3]|SIB[1-9])$', 
+                    names(hhrel))
+hhrel_processed  <- with(hhrel, data.frame(hhrel[hhrel_cols]))
 hhrel_processed  <- merge(hhrel_processed, census.processed, by="RESPID")
 
 # Merge the desnumchild data for desired family size. Note that I do not have 
@@ -192,6 +194,16 @@ hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
 names(hhreg)[names(hhreg)=="respid"] <- "RESPID"
 hhrel_processed  <- merge(hhrel_processed, hhreg, by="RESPID")
 
+children <- read.xport("M:/Data/Nepal/CVFS_Public/DS0005/04538-0005-Data.xpt")
+children <- with(children, data.frame(still_alive=C3, AGE, GENDER))
+
+# Now approximate the birth order of all children by assigning them
+get_birth_order <- function(hhrel, hhrel_row) {
+    # Returns 3 columns:
+    # 	1) birth_order
+    # 	2) birth_order_male
+    # 	3) birth_order_female
+}
 # Now recode the relationship data to replace the subject IDs used in the 
 # dataframe with the actual respondent IDs for each subject. Respondent IDs are 
 # defined as NNNHHHSSS where NNN is the neighborhood ID, HHH is the household 
@@ -204,7 +216,7 @@ convert_to_respIDs <- function(subject_columns, HHID) {
     RESPIDs[grepl('NA', RESPIDs)] <- NA
     return(RESPIDs)
 }
-subject_cols <- grep('^(PARENT1|PARENT2|SPOUSE1|SPOUSE2|SPOUSE3)$', 
+subject_cols <- grep('^(PARENT[1-2]|SPOUSE[1-3]|SIB[1-9])$', 
                     names(hhrel_processed))
 # Make sure that subjects that are not in the data do not get subject IDs 
 # assigned. If they are not in the survey their ID should be NA.
