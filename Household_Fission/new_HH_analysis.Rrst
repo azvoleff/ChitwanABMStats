@@ -3,7 +3,18 @@ Household Fission Analysis for the ChitwanABM
 ===============================================================================
 
 Analyzes creations of new households, using data from the CVFS monthly 
-household registry.
+household registry. The code tracks households created by "fission" versus 
+in-migration, and plots statistics on the new households. Fission and 
+in-migration are tracked by:
+    #) Running through the household registry data and finding the first month 
+       each household ID appears in the data.
+    #) For that first month, find the respondent IDs of all persons assigned to 
+       that household.
+    #) For these respondents, see if any of them have appeared in the data before.
+        - If any of the respondents assigned to the house HAVE appeared in the 
+          dataset before, code the household as a 'fission' household.
+        - If any of the respondents assigned to the house HAVE NOT appeared in 
+          the dataset before, code the household as a 'in-migrant' household.
 
 Load data and setup functions
 ===============================================================================
@@ -141,15 +152,27 @@ table(hh_hist$first_month, exclude=NULL)
 table(hh_hist$first_member_data, exclude=NULL)
 table(hh_hist$hh_source, exclude=NULL)
 
+Plot the number of new households by household type versus time:
 .. {r plot-number-new_HHs, fig.cap="Number of new households (from tracking HH IDs)"}
-new_HHs <- aggregate(!is.na(hh_hist$hh_source), by=list(time=hh_hist$first_month, 
+num_new_HHs <- aggregate(!is.na(hh_hist$hh_source), by=list(time=hh_hist$first_month, 
         type=hh_hist$hh_source), sum, na.rm=TRUE)
-qplot(time, x, geom="line", facets=type~., data=new_HHs[new_HHs$time!=1,], 
+qplot(time, x, geom="line", facets=type~., data=num_new_HHs[num_new_HHs$time!=1,], 
         ylab="Number of new households", xlab="Month")
 .. ..
 
+Plot the size of the new households by household type versus time, and as a histogram:
+.. {r plot-number-new_HHs, fig.cap="Number of new households (from tracking HH IDs)"}
+.. {r plot-new-HH-sizes, fig.cap="Size of new households (from tracking HH IDs and respondent IDs)"}}
+new_HHs_sizes <- aggregate(hh_hist$num_members, by=list(time=hh_hist$first_month, 
+        type=hh_hist$hh_source), mean, na.rm=TRUE)
+qplot(time, x, geom="line", facets=type~., data=new_HHs_sizes[new_HHs_sizes$time!=1,], 
+        ylab="Mean size (number of persons)", xlab="Month")
+qplot(x, geom="line", facets=type~., geom="histogram", data=new_HHs_sizes[new_HHs_sizes$time!=1,], 
+        ylab="Size (number of persons)", xlab="Month")
+.. ..
+
 Also plot some summary statistics for the new households:
-.. {r plot-new-HH-sizes}
+.. {r plot-new-HH-stats}
 qplot(min_age, facets=hh_source~., geom="histogram", data=hh_hist)
 qplot(mean_age, facets=hh_source~., geom="histogram", data=hh_hist)
 qplot(max_age, facets=hh_source~., geom="histogram", data=hh_hist)
