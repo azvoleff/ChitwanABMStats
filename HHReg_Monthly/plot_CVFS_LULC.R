@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# Plots the LULC data from a model run.
+# Plots the LULC data from the CVFS neighborhood mapping data.
 require(ggplot2)
 require(foreign)
 

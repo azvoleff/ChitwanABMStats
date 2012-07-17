@@ -1,27 +1,28 @@
 #!/usr/bin/env Rscript
 ###############################################################################
-# Loads deaths and age at death from the ICPSR Restricted dataset DS0010, the 
-# household registry data, and calculates several statistics (birth rates, 
-# marriage rates, and mortality rates) for parameterizing the ChitwanABM model.
+# Loads_deaths and age at_death from the ICPSR Restricted dataset DS0010, the 
+# household registry data, and makes a plot of the monthly data (marriages, 
+#_deaths, and births).
 ###############################################################################
 
 # Hmisc is needed as hhreg is a "labelled" dataframe. If Hmisc is nto included, 
 # will get errors saying "cannot coerce class "labelled" into a data.frame"
 require(Hmisc)
 require(ggplot2)
+require(reshape)
 
-load("U:/CVFS_HHReg/hhreg126.Rdata")
+load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 
 # Make an indicator for if a person is a current resident of Chitwan residing 
 # in a survey household
-livng.cols <- grep('^livng[0-9]*$', names(hhreg))
-place.cols <- grep('^place[0-9]*$', names(hhreg))
-in.Chitwan <- hhreg[livng.cols]==2 & hhreg[place.cols]<=151
-# Make a special indicator for deaths (as "livng" will not equal 2 for the 
-# month they died, since it will be a 3 for "died in this month). So for deaths 
+livng_cols <- grep('^livng[0-9]*$', names(hhreg))
+place_cols <- grep('^place[0-9]*$', names(hhreg))
+in_Chitwan <- hhreg[livng_cols]==2 & hhreg[place_cols]<=151
+# Make a special indicator for_deaths (as "livng" will not equal 2 for the 
+# month they died, since it will be a 3 for "died in this month). So for_deaths 
 # only check the place variable to ensure they are were in one of the proper 
 # neighborhoods.
-in.Chitwan.deaths <- hhreg[place.cols]<=151
+in_Chitwan_deaths <- hhreg[place_cols]<=151
 
 # Add a new set of columns coding whether a new marriage occurred prior to the 
 # survey in the month. Do this by using the marit columns.
@@ -47,29 +48,29 @@ maritstatus[maritstatus==4] <- 1
 maritstatus[maritstatus==5] <- 1
 maritstatus[maritstatus==6] <- 4
 
-maritstatus.chg <- maritstatus[2:ncol(maritstatus)] -
+maritstatus_chg <- maritstatus[2:ncol(maritstatus)] -
         maritstatus[1:(ncol(maritstatus)-1)]
 # Add a column for time 1, which is only NAs as marital status is not known 
 # prior to the first month, so no change can be calculated.
-maritstatus.chg <- cbind(marit1=matrix(NA, nrow(maritstatus.chg),1), maritstatus.chg)
+maritstatus_chg <- cbind(marit1=matrix(NA, nrow(maritstatus_chg),1), maritstatus_chg)
 # Rename the columns to maritchg so they do not interfere with the 'marit' 
 # column
-names(maritstatus.chg) <- sub('^marit', 'maritchg', names(maritstatus.chg))
+names(maritstatus_chg) <- sub('^marit', 'maritchg', names(maritstatus_chg))
 
-hhreg <- cbind(hhreg, maritstatus.chg)
+hhreg <- cbind(hhreg, maritstatus_chg)
 
 ###############################################################################
-# Process deaths.
+# Process_deaths.
 ###############################################################################
 
 # The 'monthly' dataframe will store the number of each event (marriages, 
-# births, deaths) per month.
-time.Robj = seq(as.Date("1997/02/15", "%Y/%m/%d"), as.Date("2007/07/15",
+# births,_deaths) per month.
+time_Robj = seq(as.Date("1997/02/15", "%Y/%m/%d"), as.Date("2007/07/15",
         "%Y/%m/%d"), by="months")
-# Calculate the number of deaths per month
-monthly.deaths <- apply(hhreg[livng.cols]==3 & in.Chitwan.deaths, 2, sum,
+# Calculate the number of_deaths per month
+monthly_deaths <- apply(hhreg[livng_cols]==3 & in_Chitwan_deaths, 2, sum,
         na.rm=T)
-monthly <- data.frame(time.Robj=time.Robj, deaths=monthly.deaths)
+monthly <- data.frame(time_Robj=time_Robj, deaths=monthly_deaths)
 
 ###############################################################################
 # Process births.
@@ -82,17 +83,17 @@ monthly <- data.frame(time.Robj=time.Robj, deaths=monthly.deaths)
 # women are counted.
 
 # Calculate the number of births per month
-preg.cols <- grep('^preg[0-9]*$', names(hhreg))
-monthly.livebirths <- apply(hhreg[preg.cols]==3 & in.Chitwan, 2, sum, na.rm=T)
-monthly <- cbind(monthly, births=monthly.livebirths)
+preg_cols <- grep('^preg[0-9]*$', names(hhreg))
+monthly_livebirths <- apply(hhreg[preg_cols]==3 & in_Chitwan, 2, sum, na.rm=T)
+monthly <- cbind(monthly, births=monthly_livebirths)
 
 ###############################################################################
 # Process marriages.
 ###############################################################################
 # Calculate the number of marriages per month
-maritchg.cols <- grep('^maritchg[0-9]*$', names(hhreg))
-monthly.marriages <- apply(hhreg[maritchg.cols]==1 & in.Chitwan, 2, sum, na.rm=T)
-monthly <- cbind(monthly, marriages=monthly.marriages)
+maritchg_cols <- grep('^maritchg[0-9]*$', names(hhreg))
+monthly_marriages <- apply(hhreg[maritchg_cols]==1 & in_Chitwan, 2, sum, na.rm=T)
+monthly <- cbind(monthly, marriages=monthly_marriages)
 
 theme_update(theme_grey(base_size=18))
 update_geom_defaults("line", aes(size=1))
@@ -103,15 +104,22 @@ update_geom_defaults("step", aes(size=1))
 write.csv(monthly, file="CVFS_monthly_events.csv", row.names=FALSE)
 save(monthly, file="CVFS_monthly_events.Rdata")
 
-monthly.stacked <- stack(monthly)
-monthly.stacked <- cbind(time.Robj=rep(monthly$time.Robj, 3), monthly.stacked)
-names(monthly.stacked)[2:3] <- c("events", "Event_type")
-plt = qplot(time.Robj, events, geom="line", colour=Event_type, xlab="Year",
-        ylab="Number of Events", data=monthly.stacked)
+monthly_melt <- melt(monthly, id.vars="time_Robj")
+names(monthly_melt)[2:3] <- c("Event_type", "events")
+plt = qplot(time_Robj, events, geom="line", colour=Event_type, 
+            linetype=Event_type, xlab="Year", ylab="Number of Events",
+            data=monthly_melt) +
+        scale_color_discrete(name="Legend",
+                            breaks=c("births", "deaths", "marriages"),
+                            labels=c("Births", "Deaths", "Marriages")) + 
+        scale_linetype_discrete(name="Legend",
+                            breaks=c("births", "deaths", "marriages"),
+                            labels=c("Births", "Deaths", "Marriages"))
 plt + geom_segment(aes(x=as.Date("2001/08/15"), y=0, xend=as.Date("2001/08/15"),
         yend=35), size=1, colour="black", alpha=.005) +
         geom_text(aes(x=as.Date("1999/03/15"), y=35,
         label="Parameterization dataset"), alpha=1, colour="black") +
         geom_text(aes(x=as.Date("2005/01/15"), y=35, label="Testing dataset"),
         alpha=1, colour="black")
+
 ggsave("CVFS_monthly_events.png", width=8.33, height=5.53, dpi=300)
