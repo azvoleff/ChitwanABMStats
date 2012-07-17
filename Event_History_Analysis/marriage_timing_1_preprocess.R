@@ -123,7 +123,7 @@ row.names(marit_status) <- hhreg$respid
 # 2) older than 15, 3) younger than 20 (per Yabiku, 2006), 4) unmarried, 5) had 
 # a valid household ID number.
 #(places[,1] > 1) & (places[,1] <= 502)
-in_sample <- (hhreg[age_cols[1]] >=15)   & (hhreg[age_cols[1]] < 20) &
+in_sample <- (hhreg[age_cols[1]] >=15)   & (hhreg[age_cols[1]] <= 20) &
              (hhreg[place_cols[1]] > 1)  & (hhreg[place_cols[1]] <= 502) &
              (hhreg[marit_cols[1]] == 0) & !is.na(hhreg[,hhid_cols[1]])
 in_sample[is.na(in_sample)] <- FALSE

@@ -72,12 +72,12 @@ Also plot the age at marriage
 
 .. note:: This sample only includes 90 months of data from people who were 
           15-20 in 1996, so the max possible age at marriage in this sample is 
-          25. When tested with a sample including those from age 15-90, the 
+          27.5. When tested with a sample including those from age 15-90, the 
           number of marriages by age is:
           
-          ``>table(marit_long[marit_long$marit==1,]$age)
-          15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 34 35 41      
-          1 12 26 53 71 69 66 79 56 54 38 29 17  8 12  4  4  1  1  1  1``
+          ``>table(marit_long[marit_long$marit==1,]$age)``
+          ``15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 34 35 41``
+          ``1  12 26 53 71 69 66 79 56 54 38 29 17  8 12  4  4  1  1  1  1``
           
           Given that there are so few marriages of those above age 30, the 
           assumption is made in the ChitwanABM that if you are not married by 
