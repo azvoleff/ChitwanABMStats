@@ -36,6 +36,7 @@ library(ggplot2)
 library(foreign)
 
 theme_update(theme_grey(base_size=10))
+update_geom_defaults("line", aes(size=.5))
 
 # Load the full household registry dataset
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
@@ -191,15 +192,15 @@ Also plot some summary statistics for the new households:
 .. {r plot-new-HH-stats}
 qplot(num_members, facets=hh_source~., geom="histogram",
         data=hh_hist[hh_hist$num_members < 10, ], xlab="Size (number of persons)")
-qplot(min_age, facets=hh_source~., geom="histogram", data=hh_hist)
-qplot(mean_age, facets=hh_source~., geom="histogram", data=hh_hist)
-qplot(max_age, facets=hh_source~., geom="histogram", data=hh_hist)
-qplot(hh_head_gender, facets=hh_source~., geom="histogram", data=hh_hist)
-qplot(mean_ethnic, facets=hh_source~., geom="histogram", data=hh_hist)
-qplot(mean_gender, facets=hh_source~., geom="histogram", data=hh_hist)
+qplot(min_age, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=5)
+qplot(mean_age, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=5)
+qplot(max_age, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=5)
+qplot(hh_head_gender, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=.05)
+qplot(mean_ethnic, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=.2)
+qplot(mean_gender, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=.1)
 qplot(mean_liv_w_s, facets=hh_source~num_members, geom="histogram", 
         data=hh_hist[hh_hist$num_members > 1 & hh_hist$num_members < 7,],
-        xlab='Mean of living with spouse == 1')
+        xlab='Mean of living with spouse == 1', binwidth=.1)
 .. ..
 
 Conclusions
