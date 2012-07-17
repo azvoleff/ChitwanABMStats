@@ -1,0 +1,159 @@
+===============================================================================
+Household Fission Analysis for the ChitwanABM
+===============================================================================
+
+Analyzes creations of new households, using data from the CVFS monthly 
+household registry.
+
+Load data and setup functions
+===============================================================================
+.. {r setup_reST_options, echo=FALSE}
+require(knitr)
+# Setup reST options:
+options(width = 75)
+opts_chunk$set(fig.path='rst-figure/', fig.width=4.5, fig.height=3, 
+        out.width='4.5in', out.height='3in', dpi=300, dev='pdf')
+.. ..
+
+.. {r setup, results='hide', messages=FALSE}
+# Hmisc is needed as hhreg is a "labelled" dataframe. If Hmisc is not included, 
+# will get errors saying "cannot coerce class "labelled" into a data.frame"
+library(Hmisc)
+library(ggplot2)
+library(foreign)
+
+# Load the full household registry dataset
+load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+hhid_cols <- grep('^hhid[0-9]*$', names(hhreg))
+place_cols <- grep('^place[0-9]*$', names(hhreg))
+age_cols <- grep('^age[0-9]*$', names(hhreg))
+marit_cols <- grep('^marit[0-9]*$', names(hhreg))
+livng_cols <- grep('^livng[0-9]*$', names(hhreg))
+# Clean the data to convert unneeded missing value codes to NAs
+hhreg[hhid_cols][hhreg[hhid_cols]=="     A"] <- NA # Inappropriate code is A
+hhreg[hhid_cols][hhreg[hhid_cols]=="     G"] <- NA # Inappropriate code is A
+
+hhreg[livng_cols][hhreg[livng_cols] == 1] <- 'away from HH'
+hhreg[livng_cols][hhreg[livng_cols] == 2] <- 'living in HH'
+
+HH_IDs <- unique(as.vector(as.matrix(hhreg[hhid_cols])))
+HH_IDs <- HH_IDs[!is.na(HH_IDs)]
+months <- seq(1:ncol(hhreg[hhid_cols]))
+
+# Now make a wide format data frame showing, for each HHID, whether or not a 
+# person from that household was present in each of the 126 months.
+HH_IDs_df <- apply(hhreg[hhid_cols], 2, function(hhreg_col) HH_IDs %in% hhreg_col)
+HH_IDs_df <- data.frame(hhid=HH_IDs, HH_IDs_df)
+.. ..
+
+Plot how the total number of households in the CVFS sample changes over time.
+.. {r plot-hh-timeseries, fig.cap="Total number of households from the CVFS monthly data"}
+num_HHs_per_month <- apply(HH_IDs_df[ ,2:ncol(HH_IDs_df)], 2,
+        function(hh_col) sum(hh_col==1))
+time_Robj = seq(as.Date("1997/02/15", "%Y/%m/%d"), as.Date("2007/07/15",
+        "%Y/%m/%d"), by="months")
+qplot(time_Robj, num_HHs_per_month, geom="line", xlab="Time", ylab="Number of Households")
+.. ..
+
+Now track how many new households are created due to fission of existing CVFS 
+households versus in-migration of new household units.
+.. {r households-first-data-month, fig.cap="Number of new household IDs per month"}
+# Find the first month each HH_ID occurs in the data
+hhid_first_month <- apply(HH_IDs_df[ ,2:ncol(HH_IDs_df)], 1,
+        function(HH_ID_row) match(1, HH_ID_row))
+hist(hhid_first_month)
+hhid_first_month <- data.frame(hhid=HH_IDs, first_month=hhid_first_month)
+.. ..
+
+.. {r people-first-data-month, fig.cap="Number of new respondent IDs per month"}
+# Make a dataset showing the first month each respid appears in the household 
+# registry data within Western Chitwan.
+place_in_Chitwan <- hhreg[place_cols] >= 1 & hhreg[place_cols] < 502
+respid_first_month <- apply(place_in_Chitwan, 1, function(place_row) match(1, place_row))
+hist(respid_first_month)
+respid_first_month <- data.frame(respid=hhreg$respid, first_month=respid_first_month)
+.. ..
+
+.. {r code-fissions}
+get_month_of_first_hh_member_data <- function(HH_ID, hh_first_month) {
+    assoc_respids <- hhreg$respid[which(hhreg[hhid_cols][hh_first_month] == as.character(HH_ID))]
+    assoc_respids <- assoc_respids[!is.na(assoc_respids)]
+    if (length(assoc_respids) == 0) return(NA)
+    hh_member_first_month <- min(respid_first_month$first_month[respid_first_month$respid %in% assoc_respids])
+    return(hh_member_first_month)
+}
+# Find if any person associated with the HH has every been seen in the CVFS 
+# data before.
+hh_hist <- mapply(get_month_of_first_hh_member_data, hhid_first_month$hhid, hhid_first_month$first_month)
+hh_hist <- data.frame(hhid=hhid_first_month$hhid, first_member_data=hh_hist)
+hh_hist <- merge(hh_hist, hhid_first_month)
+
+# Also add on a column with the household size in that month, so it can be 
+# plotted later.
+get_hh_size <- function(HH_ID, month) {
+    # Function to return size of a household in a given month (here defined as 
+    # the number of people resident in that household according to the hhid 
+    # column - so this is not what would normally be called the hhsize, since 
+    # hhsize should normally be derived from the livng variable in combination 
+    # with the hhid variable.
+    assoc_respids <- hhreg$respid[which(hhreg[hhid_cols][month] == as.character(HH_ID))]
+    assoc_respids <- assoc_respids[!is.na(assoc_respids)]
+    if (length(assoc_respids) == 0) return(NA)
+    return(length(assoc_respids))
+}
+hh_size <- mapply(get_hh_size, hhid_first_month$hhid, hhid_first_month$first_month)
+hh_size <- data.frame(hhid=hhid_first_month$hhid, num_members=hh_size)
+hh_hist <- merge(hh_hist, hh_size)
+
+# Also add on a column with the max, min, and mean age of the household 
+# members.
+get_new_hh_stats <- function(HH_ID, month) {
+    which_rows <- which(hhreg[ , hhid_cols][month] == as.character(HH_ID))
+    mean_age <- mean(hhreg[ , age_cols[month]][which_rows], na.rm=TRUE)
+    min_age <- min(hhreg[ , age_cols[month]][which_rows], na.rm=TRUE)
+    max_age <- max(hhreg[ , age_cols[month]][which_rows], na.rm=TRUE)
+    # Also get the gender of the max age person (the gender of the hh head)
+    max_age_row <- which_rows[which(hhreg[ , age_cols[month]][which_rows] == max_age)]
+    max_age_gender <- mean(hhreg$gender[max_age_row]) # Still take mean in case there is a tie for max age
+    mean_ethnic <- mean(hhreg$ethnic[which_rows], na.rm=TRUE)
+    mean_gender <- mean(hhreg$gender[which_rows], na.rm=TRUE)
+    return(cbind(mean_age, min_age, max_age, max_age_gender, mean_ethnic, mean_gender))
+}
+new_hh_stats <- t(mapply(get_new_hh_stats, hhid_first_month$hhid, hhid_first_month$first_month))
+new_hh_stats <- data.frame(hhid=hhid_first_month$hhid, new_hh_stats)
+names(new_hh_stats)[2:ncol(new_hh_stats)] <- c('mean_age', 'min_age', 'max_age', 'hh_head_gender', 'mean_ethnic', 'mean_gender')
+hh_hist <- merge(hh_hist, new_hh_stats)
+.. ..
+
+Code new 'hh_source' variable based on whether any members of the household 
+have ever been seen in the data in the months prior to the first month that 
+their household was seen in the data.
+    - If YES, then code the new HH as the result of a household fission (as the 
+      members already existed in the survey dataset prior to the appearance of 
+      the new household.
+    - If NO, then code the new HH as the result of in-migration (as all HH 
+      members are new to the survey).
+.. {r recode-fission}
+hh_hist$hh_source <- hh_hist$first_member_data < hh_hist$first_month
+hh_hist$hh_source[hh_hist$hh_source == TRUE] <- 'fission'
+hh_hist$hh_source[hh_hist$hh_source == FALSE] <- 'in-migration'
+table(hh_hist$first_month, exclude=NULL)
+table(hh_hist$first_member_data, exclude=NULL)
+table(hh_hist$hh_source, exclude=NULL)
+
+.. {r plot-number-new_HHs, fig.cap="Number of new households (from tracking HH IDs)"}
+new_HHs <- aggregate(!is.na(hh_hist$hh_source), by=list(time=hh_hist$first_month, 
+        type=hh_hist$hh_source), sum, na.rm=TRUE)
+qplot(time, x, geom="line", facets=type~., data=new_HHs[new_HHs$time!=1,], 
+        ylab="Number of new households", xlab="Month")
+.. ..
+
+Also plot some summary statistics for the new households:
+.. {r plot-new-HH-sizes}
+qplot(min_age, facets=hh_source~., geom="histogram", data=hh_hist)
+qplot(mean_age, facets=hh_source~., geom="histogram", data=hh_hist)
+qplot(max_age, facets=hh_source~., geom="histogram", data=hh_hist)
+qplot(hh_head_gender, facets=hh_source~., geom="histogram", data=hh_hist)
+qplot(mean_ethnic, facets=hh_source~., geom="histogram", data=hh_hist)
+qplot(mean_gender, facets=hh_source~., geom="histogram", data=hh_hist)
+.. ..
