@@ -36,7 +36,7 @@ library(ggplot2)
 library(foreign)
 
 theme_update(theme_grey(base_size=10))
-update_geom_defaults("line", aes(size=.5))
+update_geom_defaults("line", aes(size=.2))
 
 # Load the full household registry dataset
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
@@ -47,15 +47,33 @@ marit_cols <- grep('^marit[0-9]*$', names(hhreg))
 # Clean the data to convert unneeded missing value codes to NAs
 hhreg[hhid_cols][hhreg[hhid_cols]=="     A"] <- NA # Inappropriate code is A
 hhreg[hhid_cols][hhreg[hhid_cols]=="     G"] <- NA # Inappropriate code is A
+
+# The get_hh_stats function is used to calculate summary statistics about the 
+# respondents present in a household in a given month. This allows 
+# characterizing the people in a new in-migrant house in the first month, or 
+# those present in the last month of an out-migrating house.
+get_hh_stats <- function(HH_ID, month) {
+    which_rows <- which(hhreg[, hhid_cols][month] == as.character(HH_ID))
+    mean_age <- mean(hhreg[, age_cols[month]][which_rows], na.rm=TRUE)
+    min_age <- min(hhreg[, age_cols[month]][which_rows], na.rm=TRUE)
+    max_age <- max(hhreg[, age_cols[month]][which_rows], na.rm=TRUE)
+    # Also get the gender of the max age person (the gender of the hh head)
+    max_age_row <- which_rows[which(hhreg[, age_cols[month]][which_rows] == max_age)]
+    max_age_gender <- mean(hhreg$gender[max_age_row]) # Still take mean in case there is a tie for max age
+    mean_ethnic <- mean(hhreg$ethnic[which_rows], na.rm=TRUE)
+    mean_gender <- mean(hhreg$gender[which_rows], na.rm=TRUE)
+    mean_liv_w_s <- mean(hhreg[, marit_cols[month]][which_rows]==1, na.rm=TRUE)
+    # Also add on a column with the household size in that month, so it can be 
+    # plotted later.
+    assoc_respids <- hhreg$respid[which(hhreg[hhid_cols][month] == as.character(HH_ID))]
+    assoc_respids <- assoc_respids[!is.na(assoc_respids)]
+    if (length(assoc_respids) == 0) hh_size = NA
+    else hh_size = length(assoc_respids)
+    return(cbind(mean_age, min_age, max_age, max_age_gender, mean_ethnic, 
+            mean_gender, mean_liv_w_s, hh_size))
+}
 .. ..
 
-Track household formation and prior respondent information
-===============================================================================
-Now begin to make a wide format data frame showing, for each HHID, whether or 
-not a person from that household was present in each of the 127 months. Start 
-by first making a wide format dataframe with an HHID column, and a set of 
-columns showing for each month, whether the household was present or absent in 
-the dataset.
 .. {r make-wide-hhid-dataset, cache=FALSE}
 HH_IDs <- unique(as.vector(as.matrix(hhreg[hhid_cols])))
 HH_IDs <- HH_IDs[!is.na(HH_IDs)]
@@ -73,6 +91,14 @@ time_Robj = seq(as.Date("1997/02/15", "%Y/%m/%d"), as.Date("2007/07/15",
         "%Y/%m/%d"), by="months")
 qplot(time_Robj, num_HHs_per_month, geom="line", xlab="Time", ylab="Number of Households")
 .. ..
+
+Track household formation and prior respondent information
+===============================================================================
+Now begin to make a wide format data frame showing, for each HHID, whether or 
+not a person from that household was present in each of the 127 months. Start 
+by first making a wide format dataframe with an HHID column, and a set of 
+columns showing for each month, whether the household was present or absent in 
+the dataset.
 
 Make a dataset showing the first month each household ID appears in the household 
 registry data within Western Chitwan.
@@ -93,11 +119,12 @@ qplot(respid_first_month, geom="histogram")
 respid_first_month <- data.frame(respid=hhreg$respid, first_month=respid_first_month)
 .. ..
 
-Now combine this with a dataset Make a dataset showing the first month each 
-household ID appears in the household registry data within Western Chitwan in 
-order to see whether household members existed in the dataset prior to the 
-existence of the household. This will allow coding whether new households come 
-from fission of existing households, or from in-migration.
+Now combine the two first month datasets (for households and for respondents) 
+to make a dataset showing the first month each household ID appears in the 
+household registry data within Western Chitwan in order to see whether 
+household members existed in the dataset prior to the existence of the 
+household. This will allow coding whether new households come from fission of 
+existing households, or from in-migration.
 .. {r code-fissions}
 get_month_of_first_hh_member_data <- function(HH_ID, hh_first_month) {
     assoc_respids <- hhreg$respid[which(hhreg[hhid_cols][hh_first_month] == as.character(HH_ID))]
@@ -108,140 +135,240 @@ get_month_of_first_hh_member_data <- function(HH_ID, hh_first_month) {
 }
 # Find if any person associated with the HH has every been seen in the CVFS 
 # data before.
-hh_hist <- mapply(get_month_of_first_hh_member_data, hhid_first_month$hhid, hhid_first_month$first_month)
-hh_hist <- data.frame(hhid=hhid_first_month$hhid, first_member_data=hh_hist)
-hh_hist <- merge(hh_hist, hhid_first_month)
+new_HHs <- mapply(get_month_of_first_hh_member_data, hhid_first_month$hhid, hhid_first_month$first_month)
+new_HHs <- data.frame(hhid=hhid_first_month$hhid, first_member_data=new_HHs)
+new_HHs <- merge(new_HHs, hhid_first_month)
 
-# Also add on a column with the household size in that month, so it can be 
-# plotted later.
-get_hh_size <- function(HH_ID, month) {
-    # Function to return size of a household in a given month (here defined as 
-    # the number of people resident in that household according to the hhid 
-    # column - so this is not what would normally be called the hhsize, since 
-    # hhsize should normally be derived from the livng variable in combination 
-    # with the hhid variable.
-    assoc_respids <- hhreg$respid[which(hhreg[hhid_cols][month] == as.character(HH_ID))]
-    assoc_respids <- assoc_respids[!is.na(assoc_respids)]
-    if (length(assoc_respids) == 0) return(NA)
-    return(length(assoc_respids))
-}
-hh_size <- mapply(get_hh_size, hhid_first_month$hhid, hhid_first_month$first_month)
-hh_size <- data.frame(hhid=hhid_first_month$hhid, num_members=hh_size)
-hh_hist <- merge(hh_hist, hh_size)
-
-# Also add on a column with the max, min, and mean age of the household 
-# members.
-get_new_hh_stats <- function(HH_ID, month) {
-    which_rows <- which(hhreg[, hhid_cols][month] == as.character(HH_ID))
-    mean_age <- mean(hhreg[, age_cols[month]][which_rows], na.rm=TRUE)
-    min_age <- min(hhreg[, age_cols[month]][which_rows], na.rm=TRUE)
-    max_age <- max(hhreg[, age_cols[month]][which_rows], na.rm=TRUE)
-    # Also get the gender of the max age person (the gender of the hh head)
-    max_age_row <- which_rows[which(hhreg[, age_cols[month]][which_rows] == max_age)]
-    max_age_gender <- mean(hhreg$gender[max_age_row]) # Still take mean in case there is a tie for max age
-    mean_ethnic <- mean(hhreg$ethnic[which_rows], na.rm=TRUE)
-    mean_gender <- mean(hhreg$gender[which_rows], na.rm=TRUE)
-    mean_liv_w_s <- mean(hhreg[, marit_cols[month]][which_rows]==1, na.rm=TRUE)
-    return(cbind(mean_age, min_age, max_age, max_age_gender, mean_ethnic, 
-            mean_gender, mean_liv_w_s))
-}
-new_hh_stats <- t(mapply(get_new_hh_stats, hhid_first_month$hhid, hhid_first_month$first_month))
+new_hh_stats <- t(mapply(get_hh_stats, hhid_first_month$hhid, hhid_first_month$first_month))
 new_hh_stats <- data.frame(hhid=hhid_first_month$hhid, new_hh_stats)
-names(new_hh_stats)[2:ncol(new_hh_stats)] <- c('mean_age', 'min_age', 'max_age', 'hh_head_gender', 'mean_ethnic', 'mean_gender', 'mean_liv_w_s')
-hh_hist <- merge(hh_hist, new_hh_stats)
+names(new_hh_stats)[2:ncol(new_hh_stats)] <- c('mean_age', 'min_age', 'max_age', 'hh_head_gender', 'mean_ethnic', 'mean_gender', 'mean_liv_w_s', 'hh_size')
+new_HHs <- merge(new_HHs, new_hh_stats)
 .. ..
 
 Code new 'hh_source' variable based on whether any members of the household 
-have ever been seen in the data in the months prior to the first month that 
-their household was seen in the data.
+were ever seen in the data in the months **prior** to the first month that 
+the given household was first seen in the data.
 
-    - If YES, then code the new HH as the result of a household fission (as the 
-      members already existed in the survey dataset prior to the appearance of 
-      the new household.
-    - If NO, then code the new HH as the result of in-migration (as all HH 
-      members are new to the survey).
+    - If household members **did** exist prior to the initiation of this 
+      household ID, then code the new HH as the result of a household fission.
+    - If household members **did not** exist prior to the initiation of this 
+      household ID, then code the new HH as the result of in-migration (as all 
+      HH members are new to the survey).
+
 .. {r recode-fission}
-hh_hist$hh_source <- hh_hist$first_member_data < hh_hist$first_month
-hh_hist$hh_source[hh_hist$hh_source == TRUE] <- 'fission'
-hh_hist$hh_source[hh_hist$hh_source == FALSE] <- 'in-migration'
-table(hh_hist$first_month, exclude=NULL)
-table(hh_hist$first_member_data, exclude=NULL)
-table(hh_hist$hh_source[hh_hist$first_month!=1], exclude=NULL)
+new_HHs$hh_source <- new_HHs$first_member_data < new_HHs$first_month
+new_HHs$hh_source[new_HHs$hh_source == TRUE] <- 'fission'
+new_HHs$hh_source[new_HHs$hh_source == FALSE] <- 'in-migration'
+table(new_HHs$first_month, exclude=NULL)
+table(new_HHs$hh_source[new_HHs$first_month!=1], exclude=NULL)
 # Exclude month 1 from all the remaining plots, as in month 1 all households 
 # are new to the survey.
-hh_hist <- hh_hist[hh_hist$first_month!=1, ]
+new_HHs <- new_HHs[new_HHs$first_month!=1, ]
 .. ..
 
+Track household loss and respondent information in following months
+===============================================================================
+
+Make a dataset showing the last month each household ID appears in the household 
+registry data within Western Chitwan (to track loss of households).
+
+.. {r households-last-data-month, fig.cap="Number of lost household IDs per month"}
+# Find the last month each HH_ID occurs in the data
+hhid_last_month <- apply(HH_IDs_df[, 2:ncol(HH_IDs_df)], 1,
+        function(HH_ID_row) match(1, rev(HH_ID_row)))
+# Need to convert hh_ID_last_month since it was obtained from a reversed row.
+hhid_last_month <- abs(hhid_last_month - length(place_cols) - 1)
+hhid_last_month <- data.frame(hhid=HH_IDs, last_month=hhid_last_month)
+lost_HHs_ts <- hist(hhid_last_month$last_month, plot=FALSE, breaks=seq(0, 126))$counts
+time_Robj = seq(as.Date("1997/02/15", "%Y/%m/%d"), as.Date("2007/07/15",
+        "%Y/%m/%d"), by="months")
+lost_HHs_ts <- data.frame(time_Robj, num_lost=lost_HHs_ts)
+qplot(time_Robj, num_lost, data=lost_HHs_ts[1:nrow(lost_HHs_ts)-1, ], geom="line",
+    xlab="Time", ylab="Number of Households Lost")
+.. ..
+
+Make a dataset showing the last month each respid appears in the household 
+registry data within Western Chitwan (to be used in tracking the loss of 
+households, together with all of their occupants).
+
+.. {r people-last-data-month, fig.cap="Number of new respondent IDs per month"}
+place_in_Chitwan <- hhreg[place_cols] >= 1 & hhreg[place_cols] < 502
+respid_last_month <- apply(place_in_Chitwan, 1, function(place_row) match(1, rev(place_row)))
+respid_last_month <- abs(respid_last_month - length(place_cols) - 1)
+respid_last_month <- data.frame(respid=hhreg$respid, last_month=respid_last_month)
+.. ..
+
+Now combine the two datasets that were just made (last month information for 
+households and for respondents) to make a dataset showing the last month each 
+household ID appears in the household registry data within Western Chitwan in 
+order to see whether household members exist in the dataset prior to the 
+loss of the household. This will allow coding whether entire households migrate 
+out, or whether households are lost due to fusion, or migration of a single 
+remaining member.
+
+.. {r code-hh-losses}
+get_month_of_last_hh_member_data <- function(HH_ID, hh_last_month) {
+    assoc_respids <- hhreg$respid[which(hhreg[hhid_cols][hh_last_month] == 
+    as.character(HH_ID))]
+    assoc_respids <- assoc_respids[!is.na(assoc_respids)]
+    if (length(assoc_respids) == 0) return(NA)
+    hh_member_last_month <- max(respid_last_month$last_month[respid_last_month$respid %in% assoc_respids])
+    return(hh_member_last_month)
+}
+# Find if any person associated with the HH has every been seen in the CVFS 
+# data before.
+lost_HHs <- mapply(get_month_of_last_hh_member_data, hhid_last_month$hhid, 
+hhid_last_month$last_month)
+lost_HHs <- data.frame(hhid=hhid_last_month$hhid, last_member_data=lost_HHs)
+lost_HHs <- merge(lost_HHs, hhid_last_month)
+
+lost_hh_stats <- t(mapply(get_hh_stats, hhid_last_month$hhid, hhid_last_month$last_month))
+lost_hh_stats <- data.frame(hhid=hhid_last_month$hhid, lost_hh_stats)
+names(lost_hh_stats)[2:ncol(lost_hh_stats)] <- c('mean_age', 'min_age', 
+        'max_age', 'hh_head_gender', 'mean_ethnic', 'mean_gender', 'mean_liv_w_s', 
+        'hh_size')
+lost_HHs <- merge(lost_HHs, lost_hh_stats)
+.. ..
+
+Code new 'loss_type' variable based on whether any members of the household at 
+the time of its loss are seen in the data in the months **after** the last 
+month that the given household was last seen in the data.
+
+    - If members **are** seen in the data after the household was lost, then 
+      code the lost HH as being lost to household *fission* (as the household 
+      members were not lost to the survey, but instead moved to other 
+      households.)
+    - If members **are not** seen in the data after the household was lost,   
+      NO, then code the new HH as being lost to *out-migration* (as all HH 
+      members were lost to the survey).
+
+.. {r recode-hh-loses}
+lost_HHs$loss_type <- lost_HHs$last_member_data > lost_HHs$last_month
+lost_HHs$loss_type[lost_HHs$loss_type == TRUE] <- 'fission'
+lost_HHs$loss_type[lost_HHs$loss_type == FALSE] <- 'out-migration'
+table(lost_HHs$last_month, exclude=NULL)
+table(lost_HHs$loss_type[lost_HHs$last_month!=1], exclude=NULL)
+# Exclude month 1 from all the remaining plots, as in month 1 all households 
+# are new to the survey.
+lost_HHs <- lost_HHs[lost_HHs$last_month!=1, ]
+.. ..
+
+Basic plots
+===============================================================================
+
 Plot the number of new households by household type versus time:
-.. {r plot-number-new_HHs, fig.cap="Number of new households (from tracking HH IDs)"}
-num_new_HHs <- aggregate(!is.na(hh_hist$hh_source), by=list(time=hh_hist$first_month, 
-        type=hh_hist$hh_source), sum, na.rm=TRUE)
+.. {r plot-number-new_HHs, fig.cap="Number of new households (from tracking HH IDs)", cache=FALSE}
+num_new_HHs <- aggregate(!is.na(new_HHs$hh_source), by=list(time=new_HHs$first_month, 
+        type=new_HHs$hh_source), sum, na.rm=TRUE)
 qplot(time, x, geom="line", facets=type~., data=num_new_HHs,
-        ylab="Number of new households", xlab="Month")
+        ylab="Number of New Households", xlab="Month")
 .. ..
 
 Plot the size of the new households by household type versus time, and as a histogram:
-.. {r plot-new-HH-sizes, fig.cap="Size of new households"}
-new_HHs_sizes <- aggregate(hh_hist$num_members, by=list(time=hh_hist$first_month, 
-        type=hh_hist$hh_source), mean, na.rm=TRUE)
+.. {r plot-new-HH-sizes, fig.cap="Mean size of new households", cache=FALSE}
+new_HHs_sizes <- aggregate(new_HHs$hh_size, by=list(time=new_HHs$first_month, 
+        type=new_HHs$hh_source), mean, na.rm=TRUE)
 qplot(time, x, geom="line", facets=type~., data=new_HHs_sizes, 
-        ylab="Mean size (number of persons)", xlab="Month")
+        ylab="Mean Size (number of persons)", xlab="Month")
 .. ..
 
-Also plot some summary statistics for the new households:
-.. {r plot-new-HH-stats}
-qplot(num_members, facets=hh_source~., geom="histogram",
-        data=hh_hist[hh_hist$num_members < 10, ], xlab="Size (number of persons)")
-qplot(min_age, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=5)
-qplot(mean_age, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=5)
-qplot(max_age, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=5)
-qplot(hh_head_gender, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=.05)
-qplot(mean_ethnic, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=.2)
-qplot(mean_gender, facets=hh_source~., geom="histogram", data=hh_hist, binwidth=.1)
-qplot(mean_liv_w_s, facets=hh_source~num_members, geom="histogram", 
-        data=hh_hist[hh_hist$num_members > 1 & hh_hist$num_members < 7,],
-        xlab='Mean of living with spouse == 1', binwidth=.1)
+Plot the size of the lost households by household type versus time, and as a histogram:
+.. {r plot-lost-HH-sizes, fig.cap="Mean size of lost households", cache=FALSE}
+lost_HHs_sizes <- aggregate(lost_HHs$hh_size, by=list(time=lost_HHs$last_month, 
+        type=lost_HHs$loss_type), mean, na.rm=TRUE)
+qplot(time, x, geom="line", facets=type~., data=lost_HHs_sizes, 
+        ylab="Mean Size (number of persons)", xlab="Month")
 .. ..
+
+Plot some summary statistics for the new households:
+.. {r plot-new-HH-stats}
+qplot(hh_size, facets=hh_source~., geom="histogram",
+        data=new_HHs[new_HHs$hh_size < 10, ], xlab="Size (number of persons)")
+qplot(min_age, facets=hh_source~., geom="histogram", data=new_HHs, binwidth=5)
+qplot(mean_age, facets=hh_source~., geom="histogram", data=new_HHs, binwidth=5)
+qplot(max_age, facets=hh_source~., geom="histogram", data=new_HHs, binwidth=5)
+qplot(hh_head_gender, facets=hh_source~., geom="histogram", data=new_HHs, binwidth=.05)
+qplot(mean_ethnic, facets=hh_source~., geom="histogram", data=new_HHs, binwidth=.2)
+qplot(mean_gender, facets=hh_source~., geom="histogram", data=new_HHs, binwidth=.1)
+qplot(mean_liv_w_s, facets=hh_source~hh_size, geom="histogram", 
+        data=new_HHs[new_HHs$hh_size > 1 & new_HHs$hh_size < 7,],
+        xlab='Mean of Living with Spouse == 1', binwidth=.1)
+.. ..
+
+Also plot summary statistics for the lost households:
+.. {r plot-lost-HH-stats}
+qplot(hh_size, facets=loss_type~., geom="histogram",
+        data=lost_HHs[lost_HHs$hh_size < 10, ], xlab="Size (number of persons)")
+qplot(min_age, facets=loss_type~., geom="histogram", data=lost_HHs, binwidth=5)
+qplot(mean_age, facets=loss_type~., geom="histogram", data=lost_HHs, binwidth=5)
+qplot(max_age, facets=loss_type~., geom="histogram", data=lost_HHs, binwidth=5)
+qplot(hh_head_gender, facets=loss_type~., geom="histogram", data=lost_HHs, binwidth=.05)
+qplot(mean_ethnic, facets=loss_type~., geom="histogram", data=lost_HHs, binwidth=.2)
+qplot(mean_gender, facets=loss_type~., geom="histogram", data=lost_HHs, binwidth=.1)
+qplot(mean_liv_w_s, facets=loss_type~hh_size, geom="histogram", 
+        data=lost_HHs[lost_HHs$hh_size > 1 & lost_HHs$hh_size < 7,],
+        xlab='Mean of Living with Spouse == 1', binwidth=.1)
+.. ..
+
 
 Conclusions
 ===============================================================================
-The majority of new households (total n = :r:`sum(!is.na(hh_hist$hh_source))`) 
+The majority of new households (total n = :r:`sum(!is.na(new_HHs$hh_source))`) 
 come from in-migration (n in-migration = 
-:r:`sum(hh_hist$hh_source=="in-migration")`) rather than fission (n fission = 
-:r:`sum(hh_hist$hh_source=="fission")` ). Household creation due to fission is 
+:r:`sum(new_HHs$hh_source=="in-migration")`) rather than fission (n fission = 
+:r:`sum(new_HHs$hh_source=="fission")` ). Household creation due to fission is 
 modeled in the ChitwanABM marriage code. In-migration needs to be modeled 
 separately. So we will model in-migration as a random process, with household 
 size and composition determined following the observed probability 
 distribution.
 
-First derive household size probability distribution:
+First derive a probability distribution for the number of in-migrating 
+households in a given month:
+.. {r}
+num_new_HHs <- aggregate(!is.na(new_HHs$hh_source),
+        by=list(time=new_HHs$first_month, type=new_HHs$hh_source), sum,
+        na.rm=TRUE)
+num_new_HHs <- num_new_HHs[num_new_HHs$type == "in-migration" &
+                           num_new_HHs$time <= 60, ]
+table(num_new_HHs$x)
+num_new_HHs_prob <- cut(num_new_HHs$x, breaks=seq(0,30,5))
+num_new_HHs_prob <- num_new_HHs_prob[!is.na(num_new_HHs_prob)]
+qplot(num_new_HHs_prob, geom="histogram",
+        xlab="Number of New In-migrant Households (in a given month)",
+        ylab="Count")
+num_new_HHs_prob  <- table(num_new_HHs_prob)
+sum(num_new_HHs_prob)
+(num_new_HHs_prob <- num_new_HHs_prob / sum(num_new_HHs_prob))
+.. ..
+
+Now derive household size probability distribution:
 .. {r household-num-member-prob}
-hh_hist_inmig <- hh_hist[hh_hist$hh_source == "in-migration", ]
-table(hh_hist_inmig$num_members)
-num_member_prob <- cut(hh_hist_inmig$num_members[hh_hist_inmig$num_members <= 10], breaks=seq(0,6))
+new_HHs_inmig <- new_HHs[new_HHs$hh_source == "in-migration", ]
+table(new_HHs_inmig$hh_size)
+num_member_prob <- cut(new_HHs_inmig$hh_size[new_HHs_inmig$hh_size <= 10], breaks=seq(0,6))
 num_member_prob <- num_member_prob[!is.na(num_member_prob)]
-qplot(num_member_prob, geom="histogram", xlab="Household size (number of people)",
-        ylab="Number of households")
+qplot(num_member_prob, geom="histogram", xlab="Household Size (number of people)",
+        ylab="Number of Households")
 num_member_prob  <- table(num_member_prob)
 sum(num_member_prob)
 (num_member_prob <- num_member_prob / sum(num_member_prob))
 .. ..
 
-Now derive the household ethnicity probability distribution. Note that as there are 
-so few in-migrant households of mixed ethnicity, only 2 out of almost 2400 
+Now derive the household ethnicity probability distribution. Note that as there 
+are so few in-migrant households of mixed ethnicity, only 2 out of almost 2400 
 households total, we will ignore them in the ChitwanABM. Also ignore ethnicity 
-"6", or "Other", as it is not modeled in the ChitwanABM. However, we should 
-look into this in the future, as 10% of inmigrating households fall in that 
-category.
+"6", or "Other", as it is not modeled in the ChitwanABM (for consistency with 
+existing work). However, we should look into this in the future, as 10% of 
+inmigrating households fall in that category.
 .. {r household-ethnicity-prob}
-nonmixed <- hh_hist_inmig$mean_ethnic[ceil(hh_hist_inmig$mean_ethnic) ==
-        floor(hh_hist_inmig$mean_ethnic) & hh_hist_inmig$mean_ethnic != 6]
+nonmixed <- new_HHs_inmig$mean_ethnic[ceil(new_HHs_inmig$mean_ethnic) ==
+        floor(new_HHs_inmig$mean_ethnic) & new_HHs_inmig$mean_ethnic != 6]
 nonmixed <- factor(nonmixed, levels=c(1,2,3,4,5),
         labels=c("UpHindu", "HillTibeto", "LowHindu", "Newar", "TeraiTibeto"))
 nonmixed <- nonmixed[!is.na(nonmixed)]
 table(nonmixed)
-qplot(nonmixed, geom="histogram", xlab="Household ethnicity",
-        ylab="Number of households")
+qplot(nonmixed, geom="histogram", xlab="Household Ethnicity",
+        ylab="Number of Households")
 ethnic_prob <- table(nonmixed)
 sum(ethnic_prob)
 (ethnic_prob <- ethnic_prob / sum(ethnic_prob))
@@ -249,11 +376,11 @@ sum(ethnic_prob)
 
 Now derive the household head age probability distribution.
 .. {r household-head-age-prob}
-table(hh_hist_inmig$max_age)
-max_age_prob <- cut(hh_hist_inmig$max_age[hh_hist_inmig$max_age >= 15 & hh_hist_inmig$max_age <= 60], breaks=seq(15,55,10))
+table(new_HHs_inmig$max_age)
+max_age_prob <- cut(new_HHs_inmig$max_age[new_HHs_inmig$max_age >= 15 & new_HHs_inmig$max_age <= 60], breaks=seq(15,55,10))
 max_age_prob <- max_age_prob[!is.na(max_age_prob)]
-qplot(max_age_prob, geom="histogram", xlab="Age of household head (years)",
-    ylab="Number of households")
+qplot(max_age_prob, geom="histogram", xlab="Age of Household Head (years)",
+    ylab="Number of Households")
 max_age_prob <- table(max_age_prob)
 sum(max_age_prob)
 (max_age_prob <- max_age_prob / sum(max_age_prob))
