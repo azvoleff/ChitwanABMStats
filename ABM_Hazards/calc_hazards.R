@@ -258,7 +258,7 @@ txtprobs <- c()
 txtprobs <- c(txtprobs, make_txt_prob(birthprob$prob, preglims,
         "prob.birth"))
 txtprobs <- c(txtprobs, make_txt_prob_dist(firstbirthprob$prob,
-        c(firstbirthprob$bin, 50), "probability.firstbirth_times"))
+        firstbirthlims, "probability.firstbirth_times"))
 txtprobs <- c(txtprobs,
         make_txt_prob(deathprob[deathprob$gender=="m",]$prob,
         deathlims, "probability.death.male"))
