@@ -33,12 +33,12 @@ hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
 
 # Function to write out probabilities of events in the format required by the 
 # ChitwanABM model.
-make_txtprob <- function(probs, binlims, param.name) {
+make_txt_prob <- function(probs, binlims, param.name) {
     # param.name is the name used by the ChitwanABM model for this parameter.
     txtprob <- paste("'", param.name, "' : [{", sep="")
     for (rownum in 1:length(probs)) {
         txtprob <- paste(txtprob, "(", binlims[rownum], ", ",
-                binlims[rownum+1], "):", round(probs[rownum], digits=4),
+                binlims[rownum+1], "):", round(probs[rownum], digits=6),
                 sep="")
         if (rownum<length(probs)) txtprob <- paste(txtprob, ", ", sep="")
     }
@@ -47,18 +47,12 @@ make_txtprob <- function(probs, binlims, param.name) {
     return(txtprob)
 }
 
-make_txtprob <- function(probs, binlims, param.name) {
+make_txt_prob_dist <- function(probs, binlims, param.name) {
     # param.name is the name used by the ChitwanABM model for this parameter.
-    binlims <- paste(round(binlims, digits=4), collapse=", ")
-    probs <- paste(round(probs, digits=4), collapse=", ")
+    binlims <- paste(round(binlims, digits=6), collapse=", ")
+    probs <- paste(round(probs, digits=6), collapse=", ")
     txtprob <- paste("'", param.name, "' : [((", binlims, "), (", probs,  "))] | validate_prob_dist]", sep="")
     return(txtprob)
-}
-
-plot_prob <- function(probs, plottitle, plotfile) {
-    qplot(bin, prob, geom="line", xlab="Age (years)",
-            ylab="Annual probability", main=plottitle, data=probs)
-    ggsave(plotfile, width=8.33, height=5.53, dpi=300)
 }
 
 # Before the reshape, add a new set of columns (53 columns) coding whether a 
@@ -118,7 +112,7 @@ gotmarried.rows[is.na(gotmarried.rows)] <- FALSE
 firstbirth_times <- firstbirth_month[gotmarried.rows] - marriage_month[gotmarried.rows]
 firstbirth_times <- firstbirth_times[!(firstbirth_times<0)]
 
-firstbirthlims <- c(0, 6, 9, 12, 17, 22, 30, 40, 50)
+firstbirthlims <- c(0, 6, 9, 12, 17, 22, 30, 40)
 firstbirthbin <- cut(firstbirth_times, firstbirthlims)
 firstbirthprob <- data.frame(prob=table(firstbirthbin))
 names(firstbirthprob) <- c('bin', 'prob')
@@ -261,21 +255,21 @@ marrprob <- data.frame(gender=marriages$gender, bin=marriages$marrbin,
 # Write out probabilities to text, and plot probabilities
 ###############################################################################
 txtprobs <- c()
-txtprobs <- c(txtprobs, make_txtprob(birthprob$prob, preglims,
+txtprobs <- c(txtprobs, make_txt_prob(birthprob$prob, preglims,
         "prob.birth"))
-txtprobs <- c(txtprobs, make_txtprob(firstbirthprob$prob,
+txtprobs <- c(txtprobs, make_txt_prob_dist(firstbirthprob$prob,
         c(firstbirthprob$bin, 50), "probability.firstbirth_times"))
 txtprobs <- c(txtprobs,
-        make_txtprob(deathprob[deathprob$gender=="male",]$prob,
+        make_txt_prob(deathprob[deathprob$gender=="m",]$prob,
         deathlims, "probability.death.male"))
 txtprobs <- c(txtprobs,
-        make_txtprob(deathprob[deathprob$gender=="f",]$prob,
+        make_txt_prob(deathprob[deathprob$gender=="f",]$prob,
         deathlims, "probability.death.female"))
 txtprobs <- c(txtprobs,
-        make_txtprob(marrprob[marrprob$gender=="m",]$prob,
+        make_txt_prob(marrprob[marrprob$gender=="m",]$prob,
         marrlims, "probability.marriage.male"))
 txtprobs <- c(txtprobs,
-        make_txtprob(marrprob[marrprob$gender=="f",]$prob,
+        make_txt_prob(marrprob[marrprob$gender=="f",]$prob,
         marrlims, "probability.marriage.female"))
 write(txtprobs, file="probs.txt")
 
