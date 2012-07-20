@@ -15,7 +15,7 @@ library(Hmisc)
 library(ggplot2)
 library(foreign)
 
-# Months.total is how many months of the household registry to include (max 
+# LAST_MONTH is how many months of the household registry to include (max 
 # number of months is 126, so to include all the months set LAST_MONTH to 126).
 LAST_MONTH <- 90 # Yabiku (2006) uses 90 months
 
