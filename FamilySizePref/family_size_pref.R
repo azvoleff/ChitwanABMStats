@@ -4,9 +4,10 @@
 ###############################################################################
 library(Hmisc) # contains label function
 library(ggplot2) # contains label function
+library(foreign)
 
-load("/media/Local_Secure/CVFS_R_format/t1indiv.Rdata")
-t1indiv$gender <- factor(t1indiv$gender, labels=c("male", "female"))
+t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+t1indiv$GENDER <- factor(t1indiv$GENDER, labels=c("male", "female"))
 
 make.txtprob <- function(probs, binlims, param.name) {
     # param.name is the name used by the ChitwanABM model for this parameter.
@@ -16,20 +17,20 @@ make.txtprob <- function(probs, binlims, param.name) {
     return(txtprob)
 }
 
-columns <- grep('gender|respid|f7$', names(t1indiv))
+columns <- grep('GENDER|RESPID|F7$', names(t1indiv))
 
 desnumchild <- t1indiv[columns]
 names(desnumchild)[3] <- "numchild"
 # People who said "it is god's will" were coded as 97, and reasked the 
-# question, in f9.
+# question, in F9.
 godswill <- which(desnumchild$numchild==97)
-desnumchild[godswill,]$numchild <- t1indiv$f9[godswill]
+desnumchild[godswill,]$numchild <- t1indiv$F9[godswill]
 # Some still have "god's will", so recode these as -3 (don't know)
 desnumchild$numchild[desnumchild$numchild==97] <- -3
 # 2 people said a range from low to high. Here, arbitrarily, take the high 
-# number, stored in f7b.
+# number, stored in F7B.
 range <- which(desnumchild$numchild==95)
-desnumchild[range,]$numchild <- t1indiv$f7b[range]
+desnumchild[range,]$numchild <- t1indiv$F7B[range]
 # 28 people said they don't know. This is coded as -3 in the CVFS data. Recode 
 # this as -1.
 desnumchild$numchild[desnumchild$numchild==-3] <- -1
@@ -45,7 +46,7 @@ numchild.prob <- cbind(numchild.prob, prob=(numchild.prob$numchild/sum(numchild.
 write(make.txtprob(numchild.prob$prob, c(numchild.prob$bin, 10),
         "prob.num.children.desired"), file="prob.num.children.desired.txt")
 
-qplot(numchild, facets=gender~., geom="histogram", 
+qplot(numchild, facets=GENDER~., geom="histogram", 
         xlab="Desired Number of Children", ylab="Count", binwidth=1,
         data=desnumchild)
 ggsave("desnumchild.png", width=8.33, height=5.53, dpi=300)

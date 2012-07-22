@@ -2,15 +2,25 @@
 # Uses the household registry data to calculate crude birth rates to be used in 
 # an OLS model predicting LULC (along the lines of Axinn and Ghimire, 2007)
 
+library(foreign)
 require(ggplot2)
-require(foreign)
 
-# Load the hhreg dataframe (household registry data)
-load("/media/Local_Secure/CVFS_HHReg/hhreg126.Rdata")
+# LAST_MONTH is how many months of the household registry to include (max 
+# number of months is 126, so to include all the months set LAST_MONTH to 126).  
+LAST_MONTH <- 126
+
+load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+# Drop the appropriate monthly columns if LAST_MONTH is < 126
+varying_cols <- grep('^[a-zA-Z]*[1-9][0-9]{0,2}$', names(hhreg))
+varying_cols_times <- as.numeric(gsub('[a-zA-Z]', '', names(hhreg)[varying_cols]))
+if (LAST_MONTH < max(varying_cols_times)) {
+    drop_cols <- varying_cols[varying_cols_times > LAST_MONTH]
+    hhreg <- hhreg[-drop_cols]
+}
 
 # Load the neighborhood history data to get distance to Narayanghat (DISTNARA) 
 # and strata (STRATA) variables
-nbhhist <- read.xport("/media/Local_Secure/ICPSR_0538_Restricted/da04538-0014_REST.xpt")
+nbhhist <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0014_REST.xpt")
 nbh.vars <- nbhhist[c(3, 1174, 1175)]
 names(nbh.vars) <- c("nid", "distnara", "strata")
 nbh.vars$nid <- sprintf("%03d", nbh.vars$nid)
