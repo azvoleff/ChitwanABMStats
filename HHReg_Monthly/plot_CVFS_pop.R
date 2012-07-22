@@ -115,9 +115,9 @@ plt = qplot(time_Robj, events, geom="line", colour=Event_type,
         scale_linetype_discrete(name="Legend",
                             breaks=c("births", "deaths", "marriages"),
                             labels=c("Births", "Deaths", "Marriages"))
-plt + geom_segment(aes(x=as.Date("2001/08/15"), y=0, xend=as.Date("2001/08/15"),
+plt + geom_segment(aes(x=as.Date("2002/01/15"), y=0, xend=as.Date("2002/01/15"),
         yend=35), size=1, colour="black", alpha=.005) +
-        geom_text(aes(x=as.Date("1999/03/15"), y=35,
+        geom_text(aes(x=as.Date("1999/04/15"), y=35,
         label="Parameterization dataset"), alpha=1, colour="black") +
         geom_text(aes(x=as.Date("2005/01/15"), y=35, label="Testing dataset"),
         alpha=1, colour="black")
