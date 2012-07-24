@@ -5,7 +5,7 @@ require(Hmisc)
 require(ggplot2, quietly=TRUE)
 
 # Load the hhreg dataframe (household registry data)
-load("/media/Local_Secure/CVFS_HHReg/hhreg126.Rdata")
+load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
 
 place.cols <- grep('^place[0-9]*$', names(hhreg))
