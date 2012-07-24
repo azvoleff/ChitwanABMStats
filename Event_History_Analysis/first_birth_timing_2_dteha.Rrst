@@ -218,8 +218,8 @@ Conclusions
       - :r:`logLik(first_preg_fixed)`
 
     * - 2-level (random int. at NBH level)
-      - :r:`logLik(first_preg_2level)`
       - :r:`AIC(first_preg_2level)`
+      - :r:`logLik(first_preg_2level)`
 
     * - 3-level (random int. at resp and NBH level)
       - :r:`AIC(first_preg_3level)`
