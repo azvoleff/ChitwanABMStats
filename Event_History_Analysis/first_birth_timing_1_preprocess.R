@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 ###############################################################################
-# Encodes first_birth data, as right censored data. Only includes individuals 
+# Encodes first_preg data, as right censored data. Only includes individuals 
 # present in 1996. Encodes wide and long format person-month dataset for later 
 # analysis with glmer and or MLwiN.
 # 
@@ -34,56 +34,7 @@ if (LAST_MONTH < max(varying_cols_times)) {
 hhid_cols <- grep('^hhid[0-9]*$', names(hhreg))
 marit_cols <- grep('^(marit)[0-9]*$', names(hhreg))
 place_cols <- grep('^(place)[0-9]*$', names(hhreg))
-age_cols <- grep('^age[0-9]*$', names(hhreg))
-
-###############################################################################
-# Add interpolated log(agricultural vegetation) columns
-###############################################################################
-# Load the LULC data:
-lu <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
-land_agveg_t1 <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
-land_nonagveg_t1 <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
-land_privbldg_t1 <- with(lu, rowSums(cbind(HHRESID1, MILL1, OTRBLD1)))
-land_pubbldg_t1 <- with(lu, rowSums(cbind(ROAD1, SCHOOL1, TEMPLE1)))
-land_other_t1 <- with(lu, rowSums(cbind(CANAL1, POND1, RIVER1, SILT1, UNDVP1)))
-lu_t1 <- data.frame(NEIGHID=lu$NEIGHID, land_agveg=land_agveg_t1, 
-                    land_nonagveg=land_nonagveg_t1, 
-                    land_privbldg=land_privbldg_t1, 
-                    land_pubbldg=land_pubbldg_t1, land_other=land_other_t1)
-# Convert land areas expressed in square feet to square meters
-lu_t1[2:6]  <- lu_t1[2:6] * .09290304
-lu_t1$NEIGHID <- as.numeric(lu_t1$NEIGHID)
-lu_t1$land_total <- apply(lu_t1[2:6], 1, sum)
-lu_t1$percagveg <- with(lu_t1, (land_agveg/land_total)*100)
-
-land_agveg_t2 <- with(lu, rowSums(cbind(BARI2, IKHET2, RKHET2)))
-land_nonagveg_t2 <- with(lu, rowSums(cbind(GRASSC2, GRASSP2, PLANTC2, PLANTP2)))
-land_privbldg_t2 <- with(lu, rowSums(cbind(HHRESID2, MILL2, OTRBLD2)))
-land_pubbldg_t2 <- with(lu, rowSums(cbind(ROAD2, SCHOOL2, TEMPLE2)))
-land_other_t2 <- with(lu, rowSums(cbind(CANAL2, POND2, RIVER2, SILT2, UNDVP2)))
-lu_t2 <- data.frame(NEIGHID=lu$NEIGHID, land_agveg=land_agveg_t2, 
-                    land_nonagveg=land_nonagveg_t2, 
-                    land_privbldg=land_privbldg_t2, 
-                    land_pubbldg=land_pubbldg_t2, land_other=land_other_t2)
-# Convert land areas expressed in square feet to square meters
-lu_t2[2:6]  <- lu_t2[2:6] * .09290304
-lu_t2$NEIGHID <- as.numeric(lu_t2$NEIGHID)
-lu_t2$land_total <- apply(lu_t2[2:6], 1, sum)
-lu_t2$percagveg <- with(lu_t2, (land_agveg/land_total)*100)
-
-# Now make linear interpolation from month 1 up to month LAST_MONTH, in wide format, 
-# for each neighborhood. Note that 40 months is the average time between the T1 
-# and T2 mapping.
-rt_chg <- (lu_t2$percagveg - lu_t1$percagveg) / 40
-rt_chg_matrix <- matrix(rep(rt_chg,LAST_MONTH), nrow=nrow(lu_t2))
-initial_percagveg <- matrix(rep(lu_t1$percagveg,LAST_MONTH), ncol=LAST_MONTH)
-months_matrix <- matrix(seq(1, LAST_MONTH), ncol=LAST_MONTH, nrow=nrow(lu_t2), byrow=TRUE)
-interp_percagveg <- initial_percagveg + (rt_chg_matrix * months_matrix)
-interp_percagveg[interp_percagveg < 0] <- 0
-interp_percagveg[interp_percagveg > 100] <- 100
-interp_logpercagveg <- log(interp_percagveg + 1)
-interp_logpercagveg <- data.frame(NEIGHID=lu_t2$NEIGHID, interp_logpercagveg)
-names(interp_logpercagveg)[2:ncol(interp_logpercagveg)] <- paste("logpercagveg", seq(1:LAST_MONTH), sep="")
+age_cols <- grep('^(age)[0-9]*$', names(hhreg))
 
 ###############################################################################
 # Process LHC
@@ -134,13 +85,13 @@ hhreg[hhid_cols][hhreg[hhid_cols]=="     A"] <- NA # Inappropriate code is A
 # Recode 1 and 2 (married living with/without spouse) as 1, meaning married in 
 # that month. Recode 3, (unmarried) as 0, and 4, 5 and 6 (widowed, divorced, 
 # separated) as NA.
-hhreg[marit_cols][hhreg[marit_cols] < 0] <- NA
-hhreg[marit_cols][hhreg[marit_cols] == 1] <- 1
-hhreg[marit_cols][hhreg[marit_cols] == 2] <- 1
-hhreg[marit_cols][hhreg[marit_cols] == 3] <- 0
-hhreg[marit_cols][hhreg[marit_cols] == 4] <- NA
-hhreg[marit_cols][hhreg[marit_cols] == 5] <- NA
-hhreg[marit_cols][hhreg[marit_cols] == 6] <- NA
+hhreg[marit_cols][hhreg[marit_cols] < 0] <- NA # Missing values
+hhreg[marit_cols][hhreg[marit_cols] == 1] <- 1 # Married living with spouse
+hhreg[marit_cols][hhreg[marit_cols] == 2] <- 1 # Married not living with spouse
+hhreg[marit_cols][hhreg[marit_cols] == 3] <- 0 # Unmarried
+hhreg[marit_cols][hhreg[marit_cols] == 4] <- NA # Widowed
+hhreg[marit_cols][hhreg[marit_cols] == 5] <- NA # Divorced
+hhreg[marit_cols][hhreg[marit_cols] == 6] <- NA # Separated
 
 ###############################################################################
 # Construct sample
@@ -166,7 +117,6 @@ sample <- hhreg[in_sample, ]
 # covariates.
 indepvars <- cbind(respid=hhreg$respid, hhreg[hhid_cols], hhreg[place_cols], ethnic=hhreg$ethnic, gender=hhreg$gender, hhreg[age_cols], originalHH=hhreg$hhid1, originalNBH=hhreg$place1, schooling_yrs=hhreg$schooling_yrs, mths_marr_pre_1997=hhreg$mths_marr_pre_1997)
 indepvars <- indepvars[in_sample,]
-indepvars <- merge(indepvars, interp_logpercagveg, by.x="originalNBH", by.y="NEIGHID", all.x=TRUE)
 
 ###############################################################################
 # Censor the data
@@ -225,18 +175,24 @@ last_marr_col <- apply(sample[sample_marr_cols], 1,
     function(marit_row) (length(marit_row) - match(1, rev(marit_row)) + 1))
 live_births <- sample[sample_preg_cols]
 live_births <- (live_births == 3) | (live_births == 5)
-first_births <- t(mapply(censor_data, first_marr_col, last_marr_col,
+first_preg <- t(mapply(censor_data, first_marr_col, last_marr_col,
                          as.list(as.data.frame(t(live_births)))))
 # Apply returned a matrix, and lost its row and column names.  Reassign them so 
-# first_births ends up as the final censored matrix with correct row and column 
+# first_preg ends up as the final censored matrix with correct row and column 
 # names.
-first_births <- data.frame(first_births)
-names(first_births) <- sub('preg', 'first_birth', names(sample[sample_preg_cols]))
-first_births$respid <- sample$respid
+first_preg <- data.frame(first_preg)
+names(first_preg) <- sub('preg', 'first_preg', names(sample[sample_preg_cols]))
+first_preg$respid <- sample$respid
 
-# Add a time-varying number of months married variable, remembering that we 
-# need to add additional months for women married pre-1997
+# Add a time-varying number of months married variable
 n_months_marr <- sample[sample_marr_cols]
+# Count months when a woman was widowed, divorced, or separated as 0 months 
+# married so they don't mess up the cumulative sum. These months will be 
+# excluded from the long dataset later on since the first_preg indicator will 
+# be set to NA in that month in the censor function.
+n_months_marr[is.na(sample[sample_marr_cols])] <- 0
+# Take account of months of marriage before the start of the dataset for women 
+# married pre-1997:
 n_months_marr[, 1] <- n_months_marr[, 1] + sample$mths_marr_pre_1997
 n_months_marr <- as.data.frame(t(apply(n_months_marr, 1, cumsum)))
 names(n_months_marr) <- paste('n_months_marr', seq(1, length(sample_marr_cols)), sep="")
@@ -258,29 +214,27 @@ print("Outputting censored data...")
 # First output in wide format
 # Add columns with neighborhood and household ID, ethnicity, age, sex, and 
 # hhid.
-first_births_wide <- merge(indepvars, first_births, by="respid", all.x=F, all.y=T)
+first_preg_wide <- merge(indepvars, first_preg, by="respid", all.x=F, all.y=T)
 # Need to order the data properly for it to be used in MLwiN
-first_births_wide <- first_births_wide[order(first_births_wide$respid, first_births_wide$originalHH, first_births_wide$originalNBH),]
-save(first_births_wide, file=paste("data/first_birth_data-wideformat-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
-write.csv(first_births_wide, file=paste("data/first_birth_data-wideformat-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)
+first_preg_wide <- first_preg_wide[order(first_preg_wide$respid, first_preg_wide$originalHH, first_preg_wide$originalNBH),]
+save(first_preg_wide, file=paste("data/first_preg_data-wideformat-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
+write.csv(first_preg_wide, file=paste("data/first_preg_data-wideformat-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)
 
 # Now in long format
-first_births_cols <- grep('^first_birth[0-9]*$', names(first_births_wide))
-age_cols <- grep('^age[0-9]*$', names(first_births_wide))
-hhid_cols <- grep('^hhid[0-9]*$', names(first_births_wide))
-logpercagveg_cols <- grep('^logpercagveg[0-9]*$', names(first_births_wide))
-place_cols <- grep('^place[0-9]*$', names(first_births_wide))
-n_months_marr_cols <- grep('^n_months_marr[0-9]*$', names(first_births_wide))
+first_preg_cols <- grep('^first_preg[0-9]*$', names(first_preg_wide))
+age_cols <- grep('^age[0-9]*$', names(first_preg_wide))
+hhid_cols <- grep('^hhid[0-9]*$', names(first_preg_wide))
+place_cols <- grep('^place[0-9]*$', names(first_preg_wide))
+n_months_marr_cols <- grep('^n_months_marr[0-9]*$', names(first_preg_wide))
 # Now construct the long-format dataset
-first_births_long <- reshape(first_births_wide, idvar="respid", 
-                             varying=list(first_births_cols, age_cols,
+first_preg_long <- reshape(first_preg_wide, idvar="respid", 
+                             varying=list(first_preg_cols, age_cols,
                                           hhid_cols, place_cols, 
-                                          logpercagveg_cols, 
                                           n_months_marr_cols), 
-                             v.names=c("first_birth", "age", "hhid", "place", 
-                                "logpercagveg", "n_months_marr"),
+                             v.names=c("first_preg", "age", "hhid", "place", 
+                                       "n_months_marr"),
                              direction="long", sep="")
-first_births_long <- first_births_long[!is.na(first_births_long$first_birth),]
-first_births_long <- first_births_long[order(first_births_long$respid, first_births_long$originalHH, first_births_long$originalNBH),]
-save(first_births_long, file=paste("data/first_birth_data-longformat-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
-write.csv(first_births_long, file=paste("data/first_birth_data-longformat-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)
+first_preg_long <- first_preg_long[!is.na(first_preg_long$first_preg),]
+first_preg_long <- first_preg_long[order(first_preg_long$respid, first_preg_long$originalHH, first_preg_long$originalNBH),]
+save(first_preg_long, file=paste("data/first_preg_data-longformat-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
+write.csv(first_preg_long, file=paste("data/first_preg_data-longformat-up_to_month_", LAST_MONTH, ".csv", sep=""), row.names=FALSE)

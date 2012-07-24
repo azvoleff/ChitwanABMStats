@@ -7,10 +7,11 @@ First Birth Timing Discrete Time Event History Analysis Code for the ChitwanABM
 :Date: July, 2012
 
 Follows analysis of Ghimire and Hoelter (2007), and Axinn and Ghimire (2010):
-    Ghimire, D. J., and L. F. Hoelter. 2007. Land use and first birth timing in 
-        an agricultural setting. Population & Environment 28:289–320.
-    Ghimire, D. J., and W. G. Axinn. 2010. Community context, land use, and 
-        first birth. Rural Sociology 75 (3):478–513.
+
+    - Ghimire, D. J., and L. F. Hoelter. 2007. Land use and first birth timing 
+      in an agricultural setting. Population & Environment 28:289–320.
+    - Ghimire, D. J., and W. G. Axinn. 2010. Community context, land use, and 
+      first birth. Rural Sociology 75 (3):478–513.
 
 Uses the ``glmer`` function from the R ``glmer`` package to conduct a 
 multilevel discrete-time event history analysis of first birth timing using the 
@@ -35,86 +36,191 @@ theme_update(theme_bw(base_size=10))
 #update_geom_defaults("point", aes(size=2))
 #update_geom_defaults("line", aes(size=.75))
  
-load("data/first_birth_data-longformat-up_to_month_60.Rdata")
+load("data/first_preg_data-longformat-up_to_month_60.Rdata")
 
 # Drop "other" ethnicity for consistency with Massey et al. (2010)
-first_births_long <- first_births_long[!(first_births_long$ethnic=="Other"),]
-first_births_long$ethnic <- factor(first_births_long$ethnic)
+first_preg_long <- first_preg_long[!(first_preg_long$ethnic=="Other"),]
+first_preg_long$ethnic <- factor(first_preg_long$ethnic)
 
-first_births_long$marr_duration <- cut(first_births_long$n_months_marr, breaks=seq(0, 42, 6))
+# Load parent's characteristics to join to the dataset:
+# I17 father's work
+# I11 father school (ever)
+# I15 mother's work
+# I7 mother school (ever)
+# I19 mother's number of children
+t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+old_respID <- sprintf("%07i", t1indiv$RESPID)
+NBHID <- sprintf("%03i", as.numeric(substr(old_respID,1,3)))
+HHID <- sprintf("%03i", as.numeric(substr(old_respID,4,5)))
+SUBJID <- sprintf("%03i", as.numeric(substr(old_respID,6,7)))
+t1indiv$RESPID <- paste(NBHID, HHID, SUBJID, sep="")
+parents_char_cols <- grep('^(I17|I11|I15|I7|I19)$', names(t1indiv))
+parents_char <- t1indiv[parents_char_cols]
+names(parents_char)[grep('^I17$', names(parents_char))] <- "father_work"
+names(parents_char)[grep('^I11$', names(parents_char))] <- "father_school"
+names(parents_char)[grep('^I15$', names(parents_char))] <- "mother_work"
+names(parents_char)[grep('^I7$', names(parents_char))] <- "mother_school"
+names(parents_char)[grep('^I19$', names(parents_char))] <- "mother_num_children"
+parents_char[parents_char < 0] <- NA # will be replaced with resampling
+parents_char <- cbind(respid=t1indiv$RESPID, parents_char)
+first_preg_long <- merge(first_preg_long, parents_char)
+
+first_preg_long$marr_duration <- cut(first_preg_long$n_months_marr, breaks=c(0, 6, 12, 18, 24, 30, 36, 42, 999), right=FALSE)
+first_preg_long$marr_duration <- relevel(first_preg_long$marr_duration, "[42,999)")
+first_preg_long$schooling_yrs_cat <- cut(first_preg_long$n_months_marr, breaks=c(0, 4, 7, 11, 99), right=FALSE)
+
+# Load the neighborhood-level data to merge neighborhood-level covariates
+load("V:/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
+nbh_level_vars_cols <- grep('^(NEIGHID|elec_avail|avg_yrs_services_lt15|dist_nara|total_t1|percagveg_t1)$',
+        names(nbh_recode))
+nbh_level_vars <- nbh_recode[nbh_level_vars_cols]
+
+first_preg_long$originalNBH <- factor(sprintf("%03d", first_preg_long$originalNBH))
+first_preg_long <- merge(first_preg_long, nbh_level_vars, by.x='originalNBH', by.y='NEIGHID')
+
+# Convert total area from square meters to square kilometers
+first_preg_long$total_t1 <- first_preg_long$total_t1 / 1000000
 .. ..
 
 Basic Statistics
 ===============================================================================
 
-Total number of person-month records: :r:`nrow(first_births_long)`, form 
-:r:`length(unique(first_births_long$respid))` women. Now look at a table of how 
+Total number of person-month records: :r:`nrow(first_preg_long)`, from 
+:r:`length(unique(first_preg_long$respid))` women. Now look at a table of how 
 those records are distributed (0 being no first birth, 1 being first birth).
 
+.. {r lulc-agveg, fig.cap="Agricultural Vegetation Area"}
+qplot(percagveg_t1, facets=first_preg~., geom="histogram",
+    xlab="Neighborhood Agricultural Vegetation Land Area (%)", binwidth=5, 
+    data=first_preg_long)
+.. ..
+
+.. {r lulc-total, fig.cap="Total Neighborhood Area"}
+qplot(total_t1, geom="histogram", xlab="Total Neighborhood Area (sq. km)", 
+    binwidth=.025, data=first_preg_long)
+.. ..
+
 .. {r basic_stats_record_table}
-table(first_births_long$first_birth, exclude=NULL)
-table(first_births_long$gender)
+table(first_preg_long$gender, exclude=NULL)
+table(first_preg_long$first_preg, exclude=NULL)
 .. ..
 
 Make a quick plot of the age distribution of the sample in the first month:
 .. {r basic_stats_first_month_age_dist, fig.cap="Age distribution of sample in initial month of data collection"}
-qplot(age, geom="bar", data=first_births_long[first_births_long$time==1,], 
+qplot(age, geom="bar", data=first_preg_long[first_preg_long$time==1,], 
         xlab="Age in Month Zero", ylab="Number of Respondents", binwidth=1)
 .. ..
 
-Also do a plot of the age at first birth:
-.. {r age-at-first-birth}
-xtabs(~ age, data=first_births_long[first_births_long$first_birth == 1, ])
-qplot(age, geom="bar", data=first_births_long[first_births_long$first_birth==1,], 
-        xlab="Age at First Birth", ylab="Number of Respondents", binwidth=1)
+Do a plot of the age at first birth:
+.. {r age-at-first-preg}
+table(first_preg_long[first_preg_long$first_preg == 1, ]$age, exclude=NULL)
+qplot(age, geom="bar", data=first_preg_long[first_preg_long$first_preg==1,], 
+        xlab="Age at First Pregnancy", ylab="Number of Respondents", binwidth=1)
 .. ..
 
-And, finally, do a plot of the age at first marriage:
+.. {r covariate-xtabs}
+xtabs(~ first_preg + ethnic, data=first_preg_long, exclude=NULL)
+xtabs(~ first_preg + schooling_yrs_cat, data=first_preg_long, exclude=NULL)
+xtabs(~ first_preg + marr_duration, data=first_preg_long, exclude=NULL)
+xtabs(~ first_preg + father_work, data=first_preg_long, exclude=NULL)
+xtabs(~ first_preg + mother_work, data=first_preg_long, exclude=NULL)
+xtabs(~ first_preg + father_school, data=first_preg_long, exclude=NULL)
+xtabs(~ first_preg + mother_school, data=first_preg_long, exclude=NULL)
+xtabs(~ first_preg + mother_num_children, data=first_preg_long, exclude=NULL)
+.. ..
+
+Do a plot of the marriage duration at first birth (using the categories 
+established earlier):
+.. {r marr-durration-at-first-preg}
+table(first_preg_long[first_preg_long$first_preg == 1, ]$marr_duration, exclude=NULL)
+qplot(marr_duration, 
+        data=first_preg_long[first_preg_long$first_preg==1, ],
+        xlab="Marriage duration at First Pregnancy",
+        ylab="Number of Respondents")
+.. ..
+
+And do a plot of the age at first marriage:
 .. {r age-at-first-marr}
-xtabs(~ age_at_first_marr, data=first_births_long[first_births_long$first_birth == 1, ])
+xtabs(~ age_at_first_marr, data=first_preg_long[first_preg_long$first_preg == 1, ], exclude=NULL)
 qplot(age_at_first_marr, geom="bar", 
-        data=first_births_long[first_births_long$first_birth==1,], xlab="Age at 
-        First Marriage", ylab="Number of Respondents", binwidth=1)
+        data=first_preg_long[first_preg_long$first_preg==1,],
+        xlab="Age at First Marriage", ylab="Number of Respondents", binwidth=1)
 .. ..
 
 Discrete-time Event History Models
 ===============================================================================
+.. {r model-formula, cache=FALSE}
+model_formula <- 'first_preg ~ percagveg_t1 +
+                               elec_avail +
+                               avg_yrs_services_lt15 +
+                               dist_nara +
+                               total_t1 +
+                               ethnic + 
+                               schooling_yrs_cat +
+                               mths_marr_pre_1997 + 
+                               marr_duration +
+                               age_at_first_marr +
+                               father_work +
+                               mother_work +
+                               father_school +
+                               mother_school + 
+                               mother_num_children'
+.. ..
 
 Fixed effect model
 _______________________________________________________________________________
-.. {r first_birth_fixed_ageyears}
-first_birth_fixed <- glm(first_birth ~ ethnic + logpercagveg + 
-                    schooling_yrs + mths_marr_pre_1997 + n_months_marr +
-                    age_at_first_marr, 
-                    data=first_births_long, family=binomial)
-save(first_birth_fixed, file="models/first_birth_fixed.Rdata")
-summary(first_birth_fixed)
-(first_birth_fixed_results <- logistic.display(first_birth_fixed))
-write.csv(first_birth_fixed_results$table, file="models/first_birth_fixed_odds.csv")
+.. {r first_preg_fixed_ageyears}
+first_preg_fixed <- glm(model_formula, data=first_preg_long, family=binomial)
+save(first_preg_fixed, file="models/first_preg_fixed.Rdata")
+summary(first_preg_fixed)
+(first_preg_fixed_results <- cbind(coef=coef(first_preg_fixed),  
+                                    OR=exp(coef(first_preg_fixed))))
+write.csv(first_preg_fixed_results$table, file="models/first_preg_fixed_odds.csv")
 .. ..
 
 
 Mixed-effects model - random intercept at neighborhood level
 _______________________________________________________________________________
-.. {r first_birth_2level}
-(first_birth_2level <- glmer(first_birth ~ ethnic + logpercagveg + 
-                        schooling_yrs + mths_marr_pre_1997 + n_months_marr +
-                        age_at_first_marr + (1 | originalNBH), 
-                        data=first_births_long, family=binomial))
-(first_birth_2level_or <- round(exp(fixef(first_birth_2level)), 4))
-save(first_birth_2level, file="models/first_birth_2level.Rdata")
-write.csv(first_birth_2level_or, file="models/first_birth_2level_odds.csv")
+.. {r first_preg_2level}
+first_preg_2level_formula <- as.formula(paste(model_formula, '+ (1 | originalNBH)'))
+(first_preg_2level <- glmer(first_preg_2level_formula,
+                        data=first_preg_long, family=binomial, verbose=TRUE))
+(first_preg_2level_or <- round(exp(fixef(first_preg_2level)), 4))
+save(first_preg_2level, file="models/first_preg_2level.Rdata")
+write.csv(first_preg_2level_or, file="models/first_preg_2level_odds.csv")
 .. ..
 
 Mixed-effects model - random intercepts at individual and neighborhood levels
 _______________________________________________________________________________
-.. {r first_birth_3level}
+.. {r first_preg_3level}
 library(languageR)
-(first_birth_3level <- glmer(first_birth ~ ethnic + age + I(age^2) + logpercagveg + 
-                        schooling_yrs + mths_marr_pre_1997 + n_months_marr +
-                        (1 | respid) + (1 | originalNBH), data=first_births_long, 
-                        family=binomial))
-save(first_birth_3level, file="models/first_birth_3level.Rdata")
-(first_birth_3level_or <- round(exp(fixef(first_birth_3level)), 4))
-write.csv(first_birth_3level_or, file="models/first_birth_3level_odds.csv")
+first_preg_3level_formula <- as.formula(paste(model_formula, '+ (1 | respid) + (1 | originalNBH)'))
+(first_preg_3level <- glmer(first_preg_3level_formula, data=first_preg_long, 
+                        family=binomial, verbose=TRUE))
+save(first_preg_3level, file="models/first_preg_3level.Rdata")
+(first_preg_3level_or <- round(exp(fixef(first_preg_3level)), 4))
+write.csv(first_preg_3level_or, file="models/first_preg_3level_odds.csv")
 .. ..
+
+Conclusions
+===============================================================================
+
+.. list-table:: Model overview
+    :widths: 40 20 20
+    :header-rows: 1
+
+    * - Model
+      - AIC
+      - Log Likelihood
+
+    * - Fixed
+      - :r:`AIC(first_preg_fixed)`
+      - :r:`logLik(first_preg_fixed)`
+
+    * - 2-level (random int. at NBH level)
+      - :r:`logLik(first_preg_2level)`
+      - :r:`AIC(first_preg_2level)`
+
+    * - 3-level (random int. at resp and NBH level)
+      - :r:`AIC(first_preg_3level)`
+      - :r:`logLik(first_preg_3level)`

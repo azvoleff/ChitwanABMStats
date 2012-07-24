@@ -157,9 +157,9 @@ time_outside[DL_first_migration_col < LD_first_migration_col] <- NA
 mean(time_outside, na.rm=T)
 qplot(time_outside[time_outside<36], geom="histogram", xlab="Months Away", 
       ylab="Number of People", binwidth=3)
-ggsave(paste("data/time_outside-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".png", sep=""), 
+ggsave(paste("data/migration_time_outside-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".png", sep=""), 
        width=PLOT_WIDTH, height=PLOT_HEIGHT, dpi=DPI)
-save(time_outside, file=paste("data/time_outside-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
+save(time_outside, file=paste("data/migration_time_outside-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
 
 # Find total number of LD migrations:
 #num_LD_migrants <- sum((!is.na(LD_first_migration_col)), na.rm=T)

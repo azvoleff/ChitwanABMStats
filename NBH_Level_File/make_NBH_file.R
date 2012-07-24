@@ -14,10 +14,8 @@ nbh_recode$STRATA <- factor(nbh_recode$STRATA)
 # been available in the neighborhood (for consistency with established models).
 nbh_serv_cols <- grep('^(SCHLFT|HLTHFT|BUSFT|MARFT|EMPFT)[1-5][0-9]$', 
                       names(nbhhist))
-services <- nbhhist[nbh_serv_cols]
-services[services <= 30] <- 1
-services[services > 30] <- 0
-nbh_recode$avg_yrs_services <- rowSums(services) / 5
+nbh_recode$avg_yrs_services_lt15 <- rowSums(nbhhist[nbh_serv_cols] <= 15 ) / 5
+nbh_recode$avg_yrs_services_lt30 <- rowSums(nbhhist[nbh_serv_cols] <= 30 ) / 5
 
 # Merge the 1996 non-family services data.  Below are the variables for 
 # non-family services w/in a 1 hour walk at age 12.
@@ -35,7 +33,6 @@ nbh_recode <- cbind(nbh_recode, nonfam1996)
 # coordinates of the center of the road in the middle of the downtown area of 
 # Narayanghat), and convert from meters to kilometers
 nbh_recode$dist_nara <- (sqrt((nbh_recode$NX - 245848)**2 + (nbh_recode$NY - 3066013)**2)) / 1000
-
 
 # Load and recode the LULC data
 lulc_orig <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")

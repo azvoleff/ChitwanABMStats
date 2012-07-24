@@ -86,6 +86,8 @@ migr_long$agegrp <- factor(migr_long$agegrp, levels=c("lt15", "gt15lt25", "gt25l
 migr_long$agegrp <- factor(migr_long$agegrp)
 migr_long$timeyears <- migr_long$time/12
 migr_long$agedecades <- migr_long$age/10
+
+load("data/time_outside-1_months_away-up_to_month_36.Rdata")
 .. ..
 
 Basic Statistics
