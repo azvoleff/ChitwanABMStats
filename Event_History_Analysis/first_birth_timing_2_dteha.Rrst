@@ -1,0 +1,120 @@
+===============================================================================
+First Birth Timing Discrete Time Event History Analysis Code for the ChitwanABM
+===============================================================================
+
+:Author: Alex Zvoleff
+:Email: azvoleff@mail.sdsu.edu
+:Date: July, 2012
+
+Follows analysis of Ghimire and Hoelter (2007), and Axinn and Ghimire (2010):
+    Ghimire, D. J., and L. F. Hoelter. 2007. Land use and first birth timing in 
+        an agricultural setting. Population & Environment 28:289–320.
+    Ghimire, D. J., and W. G. Axinn. 2010. Community context, land use, and 
+        first birth. Rural Sociology 75 (3):478–513.
+
+Uses the ``glmer`` function from the R ``glmer`` package to conduct a 
+multilevel discrete-time event history analysis of first birth timing using the 
+monthly Chitwan Valley Family Study (CVFS) household registry data.
+
+.. {r setup_reST_options, echo=FALSE, cache=FALSE}
+require(knitr)
+# Setup reST options:
+options(width = 75)
+opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
+    fig.width=4.5, fig.height=3, out.width='4.5in', out.height='3in', dpi=300, 
+    dev='pdf')
+.. ..
+
+.. {r setup, results='hide', messages=FALSE, cache=FALSE}
+library(ggplot2)
+library(lme4)
+library(epicalc) # for logistic.display
+library(arm) # for se.coef, se.fixef
+#theme_update(theme_grey(base_size=10))
+theme_update(theme_bw(base_size=10))
+#update_geom_defaults("point", aes(size=2))
+#update_geom_defaults("line", aes(size=.75))
+ 
+load("data/first_birth_data-longformat-up_to_month_60.Rdata")
+
+# Drop "other" ethnicity for consistency with Massey et al. (2010)
+first_births_long <- first_births_long[!(first_births_long$ethnic=="Other"),]
+first_births_long$ethnic <- factor(first_births_long$ethnic)
+
+first_births_long$marr_duration <- cut(first_births_long$n_months_marr, breaks=seq(0, 42, 6))
+.. ..
+
+Basic Statistics
+===============================================================================
+
+Total number of person-month records: :r:`nrow(first_births_long)`, form 
+:r:`length(unique(first_births_long$respid))` women. Now look at a table of how 
+those records are distributed (0 being no first birth, 1 being first birth).
+
+.. {r basic_stats_record_table}
+table(first_births_long$first_birth, exclude=NULL)
+table(first_births_long$gender)
+.. ..
+
+Make a quick plot of the age distribution of the sample in the first month:
+.. {r basic_stats_first_month_age_dist, fig.cap="Age distribution of sample in initial month of data collection"}
+qplot(age, geom="bar", data=first_births_long[first_births_long$time==1,], 
+        xlab="Age in Month Zero", ylab="Number of Respondents", binwidth=1)
+.. ..
+
+Also do a plot of the age at first birth:
+.. {r age-at-first-birth}
+xtabs(~ age, data=first_births_long[first_births_long$first_birth == 1, ])
+qplot(age, geom="bar", data=first_births_long[first_births_long$first_birth==1,], 
+        xlab="Age at First Birth", ylab="Number of Respondents", binwidth=1)
+.. ..
+
+And, finally, do a plot of the age at first marriage:
+.. {r age-at-first-marr}
+xtabs(~ age_at_first_marr, data=first_births_long[first_births_long$first_birth == 1, ])
+qplot(age_at_first_marr, geom="bar", 
+        data=first_births_long[first_births_long$first_birth==1,], xlab="Age at 
+        First Marriage", ylab="Number of Respondents", binwidth=1)
+.. ..
+
+Discrete-time Event History Models
+===============================================================================
+
+Fixed effect model
+_______________________________________________________________________________
+.. {r first_birth_fixed_ageyears}
+first_birth_fixed <- glm(first_birth ~ ethnic + logpercagveg + 
+                    schooling_yrs + mths_marr_pre_1997 + n_months_marr +
+                    age_at_first_marr, 
+                    data=first_births_long, family=binomial)
+save(first_birth_fixed, file="models/first_birth_fixed.Rdata")
+summary(first_birth_fixed)
+(first_birth_fixed_results <- logistic.display(first_birth_fixed))
+write.csv(first_birth_fixed_results$table, file="models/first_birth_fixed_odds.csv")
+.. ..
+
+
+Mixed-effects model - random intercept at neighborhood level
+_______________________________________________________________________________
+.. {r first_birth_2level}
+(first_birth_2level <- glmer(first_birth ~ ethnic + logpercagveg + 
+                        schooling_yrs + mths_marr_pre_1997 + n_months_marr +
+                        age_at_first_marr + (1 | originalNBH), 
+                        data=first_births_long, family=binomial))
+(first_birth_2level_or <- round(exp(fixef(first_birth_2level)), 4))
+save(first_birth_2level, file="models/first_birth_2level.Rdata")
+write.csv(first_birth_2level_or, file="models/first_birth_2level_odds.csv")
+.. ..
+
+Mixed-effects model - random intercepts at individual and neighborhood levels
+_______________________________________________________________________________
+.. {r first_birth_3level}
+library(languageR)
+(first_birth_3level <- glmer(first_birth ~ ethnic + age + I(age^2) + logpercagveg + 
+                        schooling_yrs + mths_marr_pre_1997 + n_months_marr +
+                        (1 | respid) + (1 | originalNBH), data=first_births_long, 
+                        family=binomial))
+save(first_birth_3level, file="models/first_birth_3level.Rdata")
+(first_birth_3level_or <- round(exp(fixef(first_birth_3level)), 4))
+write.csv(first_birth_3level_or, file="models/first_birth_3level_odds.csv")
+.. ..
