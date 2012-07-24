@@ -38,51 +38,13 @@ marit_cols <- grep('^(marit)[0-9]*$', names(hhreg))
 place_cols <- grep('^(place)[0-9]*$', names(hhreg))
 age_cols <- grep('^age[0-9]*$', names(hhreg))
 
-# Load the LULC data:
-lu <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
-land_agveg_t1 <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
-land_nonagveg_t1 <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
-land_privbldg_t1 <- with(lu, rowSums(cbind(HHRESID1, MILL1, OTRBLD1)))
-land_pubbldg_t1 <- with(lu, rowSums(cbind(ROAD1, SCHOOL1, TEMPLE1)))
-land_other_t1 <- with(lu, rowSums(cbind(CANAL1, POND1, RIVER1, SILT1, UNDVP1)))
-lu_t1 <- data.frame(NEIGHID=lu$NEIGHID, land_agveg=land_agveg_t1, 
-                    land_nonagveg=land_nonagveg_t1, 
-                    land_privbldg=land_privbldg_t1, 
-                    land_pubbldg=land_pubbldg_t1, land_other=land_other_t1)
-# Convert land areas expressed in square feet to square meters
-lu_t1[2:6]  <- lu_t1[2:6] * .09290304
-lu_t1$NEIGHID <- as.numeric(lu_t1$NEIGHID)
-lu_t1$land_total <- apply(lu_t1[2:6], 1, sum)
-lu_t1$percagveg <- with(lu_t1, (land_agveg/land_total)*100)
-
-land_agveg_t2 <- with(lu, rowSums(cbind(BARI2, IKHET2, RKHET2)))
-land_nonagveg_t2 <- with(lu, rowSums(cbind(GRASSC2, GRASSP2, PLANTC2, PLANTP2)))
-land_privbldg_t2 <- with(lu, rowSums(cbind(HHRESID2, MILL2, OTRBLD2)))
-land_pubbldg_t2 <- with(lu, rowSums(cbind(ROAD2, SCHOOL2, TEMPLE2)))
-land_other_t2 <- with(lu, rowSums(cbind(CANAL2, POND2, RIVER2, SILT2, UNDVP2)))
-lu_t2 <- data.frame(NEIGHID=lu$NEIGHID, land_agveg=land_agveg_t2, 
-                    land_nonagveg=land_nonagveg_t2, 
-                    land_privbldg=land_privbldg_t2, 
-                    land_pubbldg=land_pubbldg_t2, land_other=land_other_t2)
-# Convert land areas expressed in square feet to square meters
-lu_t2[2:6]  <- lu_t2[2:6] * .09290304
-lu_t2$NEIGHID <- as.numeric(lu_t2$NEIGHID)
-lu_t2$land_total <- apply(lu_t2[2:6], 1, sum)
-lu_t2$percagveg <- with(lu_t2, (land_agveg/land_total)*100)
-
-# Now make linear interpolation from month 1 up to month LAST_MONTH, in wide format, 
-# for each neighborhood. Note that 40 months is the average time between the T1 
-# and T2 mapping.
-rt_chg <- (lu_t2$percagveg - lu_t1$percagveg)/40
-rt_chg_matrix <- matrix(rep(rt_chg,LAST_MONTH), nrow=nrow(lu_t2))
-initial_percagveg <- matrix(rep(lu_t1$percagveg,LAST_MONTH), ncol=LAST_MONTH)
-months_matrix <- matrix(seq(1,LAST_MONTH), ncol=LAST_MONTH, nrow=nrow(lu_t2), byrow=TRUE)
-interp_percagveg <- initial_percagveg + (rt_chg_matrix * months_matrix)
-interp_percagveg[interp_percagveg<0] <- 0
-interp_percagveg[interp_percagveg>100] <- 100
-interp_logpercagveg <- log(interp_percagveg + 1)
-interp_logpercagveg <- data.frame(NEIGHID=lu_t2$NEIGHID, interp_logpercagveg)
-names(interp_logpercagveg)[2:ncol(interp_logpercagveg)] <- paste("logpercagveg", seq(1:LAST_MONTH), sep="")
+# Load the interpolated LULC data:
+load("V:/Nepal/ICPSR_0538_Restricted/Recode/interpolated_percent_agveg.Rdata")
+interp_percagveg_cols <- grep('^interp_percagveg[0-9]*$', names(interp_percagveg))
+interp_percagveg_cols <- interp_percagveg_cols[1:LAST_MONTH]
+interp_logpercagveg <- log(interp_percagveg[interp_percagveg_cols] + 1)
+interp_logpercagveg <- data.frame(NEIGHID=interp_percagveg$NEIGHID, interp_logpercagveg)
+names(interp_logpercagveg) <- sub("percagveg", "logpercagveg", names(interp_logpercagveg))
 
 t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 # To merge with the hhreg data, need to convert the old format respondent ID 
@@ -196,7 +158,7 @@ write.csv(marit_wide, file=paste("data/marriage_data-wideformat-up_to_month_", L
 marit_cols <- grep('^marit[0-9]*$', names(marit_wide))
 age_cols <- grep('^age[0-9]*$', names(marit_wide))
 hhid_cols <- grep('^hhid[0-9]*$', names(marit_wide))
-logpercagveg_cols <- grep('^logpercagveg[0-9]*$', names(marit_wide))
+logpercagveg_cols <- grep('^interp_logpercagveg[0-9]*$', names(marit_wide))
 place_cols <- grep('^place[0-9]*$', names(marit_wide))
 # Now construct the long-format dataset
 marit_long <- reshape(marit_wide, idvar="respid", 
@@ -204,7 +166,7 @@ marit_long <- reshape(marit_wide, idvar="respid",
                                           hhid_cols, place_cols, 
                                           logpercagveg_cols), 
                       v.names=c("marit", "age", "hhid", "place", 
-                                "logpercagveg"),
+                                "interp_logpercagveg"),
                              direction="long", sep="")
 marit_long <- marit_long[!is.na(marit_long$marit),]
 marit_long <- marit_long[order(marit_long$respid, marit_long$originalHH, marit_long$originalNBH),]

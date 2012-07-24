@@ -105,7 +105,7 @@ with(marit_long, xtabs(~ age + ethnic + gender, exclude=NULL))
 Now make a quick plot of a histogram of log(percent agricultural vegetation + 
 1), for the first month:
 .. {r basic_stats_logpercagveg, fig.cap="log(percent ag. veg. + 1) for month 1"}
-qplot(marit_long[marit_long$time==1,]$logpercagveg, geom="histogram")
+qplot(marit_long[marit_long$time==1,]$interp_logpercagveg, geom="histogram")
 .. ..
 
 Discrete-time Event History Models
@@ -121,7 +121,7 @@ decades. So do a GLM with age in years for comparison with the Yabiku (2006)
 results, but use age in decades for the final model to be included in the ABM.
 
 .. {r marr_fixed_ageyears}
-marr_fixed <- glm(marit ~ ethnic + gender + age + I(age^2) + logpercagveg + 
+marr_fixed <- glm(marit ~ ethnic + gender + age + I(age^2) + interp_logpercagveg + 
                     schooling_yrs + month, data=marit_long, family=binomial)
 save(marr_fixed, file="models/marr_fixed.Rdata")
 summary(marr_fixed)
@@ -130,7 +130,7 @@ write.csv(marr_fixed_results$table, file="models/marr_fixed_odds.csv")
 .. ..
 
 .. {r marr_fixed_agedecades}
-marr_fixed_agedecades <- glm(marit ~ ethnic + gender + agedecades + I(agedecades^2) + logpercagveg + 
+marr_fixed_agedecades <- glm(marit ~ ethnic + gender + agedecades + I(agedecades^2) + interp_logpercagveg + 
                     schooling_yrs + month, data=marit_long, family=binomial)
 save(marr_fixed_agedecades, file="models/marr_fixed_agedecades.Rdata")
 summary(marr_fixed_agedecades)
@@ -141,7 +141,7 @@ write.csv(marr_fixed_agedecades_results$table, file="models/marr_fixed_agedecade
 Mixed-effects model - random intercept at neighborhood level
 _______________________________________________________________________________
 .. {r marr_2level}
-(marr_2level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + logpercagveg + 
+(marr_2level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + interp_logpercagveg + 
                         schooling_yrs + month + (1 | originalNBH), data=marit_long, 
                         family=binomial))
 (marr_2level_or <- round(exp(fixef(marr_2level)), 4))
@@ -153,7 +153,7 @@ Mixed-effects model - random intercepts at individual and neighborhood levels
 _______________________________________________________________________________
 .. {r marr_3level}
 library(languageR)
-(marr_3level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + logpercagveg + 
+(marr_3level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + interp_logpercagveg + 
                         schooling_yrs + month + (1 | respid) +
                         (1 | originalNBH), data=marit_long, family=binomial))
 save(marr_3level, file="models/marr_3level.Rdata")
