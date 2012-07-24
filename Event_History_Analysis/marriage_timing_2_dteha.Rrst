@@ -26,7 +26,6 @@ opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
 .. {r setup, results='hide', messages=FALSE, cache=FALSE}
 library(ggplot2)
 library(lme4)
-library(epicalc) # for logistic.display
 library(arm) # for se.coef, se.fixef
 #theme_update(theme_grey(base_size=10))
 theme_update(theme_bw(base_size=10))
@@ -121,30 +120,37 @@ decades. So do a GLM with age in years for comparison with the Yabiku (2006)
 results, but use age in decades for the final model to be included in the ABM.
 
 .. {r marr_fixed_ageyears}
-marr_fixed <- glm(marit ~ ethnic + gender + age + I(age^2) + interp_logpercagveg + 
-                    schooling_yrs + month, data=marit_long, family=binomial)
+marr_fixed <- glm(marit ~ ethnic + gender + age + I(age^2) + 
+                 interp_logpercagveg + schooling_yrs + month, data=marit_long, 
+                 family=binomial)
 save(marr_fixed, file="models/marr_fixed.Rdata")
 summary(marr_fixed)
-(marr_fixed_results <- logistic.display(marr_fixed))
-write.csv(marr_fixed_results$table, file="models/marr_fixed_odds.csv")
+(marr_fixed_or <- data.frame(coef=coef(marr_fixed), 
+                              OR=round(exp(coef(marr_fixed)), 4)))
+write.csv(marr_fixed_or, file="models/marr_fixed_odds.csv")
 .. ..
 
 .. {r marr_fixed_agedecades}
-marr_fixed_agedecades <- glm(marit ~ ethnic + gender + agedecades + I(agedecades^2) + interp_logpercagveg + 
-                    schooling_yrs + month, data=marit_long, family=binomial)
+marr_fixed_agedecades <- glm(marit ~ ethnic + gender + agedecades + 
+                            I(agedecades^2) + interp_logpercagveg + 
+                            schooling_yrs + month, data=marit_long, 
+                            family=binomial)
 save(marr_fixed_agedecades, file="models/marr_fixed_agedecades.Rdata")
 summary(marr_fixed_agedecades)
-(marr_fixed_agedecades_results <- logistic.display(marr_fixed_agedecades))
-write.csv(marr_fixed_agedecades_results$table, file="models/marr_fixed_agedecades_odds.csv")
+(marr_fixed_agedecades_or <- data.frame(coef=coef(marr_fixed_agedecades), 
+                                 OR=round(exp(coef(marr_fixed_agedecades)), 4)))
+write.csv(marr_fixed_agedecades_or, file="models/marr_fixed_agedecades_odds.csv")
 .. ..
 
 Mixed-effects model - random intercept at neighborhood level
 _______________________________________________________________________________
 .. {r marr_2level}
-(marr_2level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + interp_logpercagveg + 
-                        schooling_yrs + month + (1 | originalNBH), data=marit_long, 
+(marr_2level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + 
+                        interp_logpercagveg + schooling_yrs + month +
+                        (1 | originalNBH), data=marit_long, 
                         family=binomial))
-(marr_2level_or <- round(exp(fixef(marr_2level)), 4))
+(marr_2level_or <- data.frame(coef=fixef(marr_2level), 
+                              OR=round(exp(fixef(marr_2level)), 4)))
 save(marr_2level, file="models/marr_2level.Rdata")
 write.csv(marr_2level_or, file="models/marr_2level_odds.csv")
 .. ..
@@ -152,11 +158,35 @@ write.csv(marr_2level_or, file="models/marr_2level_odds.csv")
 Mixed-effects model - random intercepts at individual and neighborhood levels
 _______________________________________________________________________________
 .. {r marr_3level}
-library(languageR)
-(marr_3level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + interp_logpercagveg + 
-                        schooling_yrs + month + (1 | respid) +
-                        (1 | originalNBH), data=marit_long, family=binomial))
+(marr_3level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + 
+                        interp_logpercagveg + schooling_yrs + month +
+                        (1 | respid) + (1 | originalNBH), data=marit_long, 
+                        family=binomial))
 save(marr_3level, file="models/marr_3level.Rdata")
-(marr_3level_or <- round(exp(fixef(marr_3level)), 4))
+(marr_3level_or <- data.frame(coef=fixef(marr_3level), 
+                              OR=round(exp(fixef(marr_3level)), 4)))
 write.csv(marr_3level_or, file="models/marr_3level_odds.csv")
 .. ..
+
+
+Conclusions
+===============================================================================
+.. list-table:: Model overview
+    :widths: 40 20 20
+    :header-rows: 1
+
+    * - Model
+      - AIC
+      - Log Likelihood
+
+    * - Fixed
+      - :r:`AIC(marr_fixed_agedecades)`
+      - :r:`logLik(marr_fixed_agedecades)`
+
+    * - 2-level (random int. at NBH level)
+      - :r:`AIC(marr_2level)`
+      - :r:`logLik(marr_2level)`
+
+    * - 3-level (random int. at resp and NBH level)
+      - :r:`AIC(marr_3level)`
+      - :r:`logLik(marr_3level)`
