@@ -1,9 +1,7 @@
 #!/usr/bin/Rscript
 require(ggplot2)
 
-theme_update(theme_grey(base_size=18))
-update_geom_defaults("line", aes(size=1))
-update_geom_defaults("step", aes(size=1))
+theme_update(theme_grey(base_size=14))
 
 make_txtprob <- function(probs, binlims, param.name) {
     # param.name is the name used by the ChitwanABM model for this parameter.
@@ -26,14 +24,13 @@ qplot(hh_areas$area, geom="histogram", xlab="Area of Household Plot (square mete
       ylab="Count")
 ggsave("hh_areas_T1_hist_cut.png", width=8.33, height=5.53, dpi=300)
 
-hh_areas_binned <- hist(hh_areas$area, breaks=10, plot=FALSE)
-lim_upper <- hh_areas_binned$breaks[2:length(hh_areas_binned$breaks)]
-hh_areas_prob <- data.frame(lim_upper=lim_upper,
-        prob=hh_areas_binned$counts)
-hh_areas_prob$prob <- hh_areas_prob$prob/sum(hh_areas_prob$prob)
+hh_areas_lims <- seq(0, 1000, 100)
+hh_areas_binned <- cut(hh_areas$area, hh_areas_lims)
+hh_areas_prob <- data.frame(prob=table(hh_areas_binned))
+names(hh_areas_prob) <- c('bin', 'prob')
+hh_areas_prob$prob <- hh_areas_prob$prob / sum(hh_areas_prob$prob)
 
-# And plot a histogram from this distribution
-qplot(lim_upper, prob*100, geom="step", xlab="Area of Household Plot (square meters)",
+qplot(bin, prob*100, geom="bar", xlab="Area of Household Plot (square meters)",
         ylab="Probability (%)", data=hh_areas_prob)
 ggsave("hh_areas_T1_hist_prob.png", width=8.33, height=5.53, dpi=300)
 
