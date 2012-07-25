@@ -40,7 +40,7 @@ age_cols <- grep('^(age)[0-9]*$', names(hhreg))
 # Process LHC
 ###############################################################################
 lhc <- read.xport('M:/Data/Nepal/CVFS_Public/20120722_Chitwan_Unrestricted_Data/ICPSR_04538/DS0013/04538_0013_data.xpt')
-lhc_marr_cols <- grep('^(M1E199[4-9])|(M1E20[0-5][0-9])$',names(lhc))
+lhc_marr_cols <- grep('^(M1E199[4-9])|(M1E20[0-5][0-9])$', names(lhc))
 marr_year <- apply(lhc[lhc_marr_cols], 1,
                     function(marit_row) match(1, marit_row))
 mths_marr_pre_1997 <- (length(lhc_marr_cols) - marr_year) * 12 + (13 - lhc$MARR1MTH)
