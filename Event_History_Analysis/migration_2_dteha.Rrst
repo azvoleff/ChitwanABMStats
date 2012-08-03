@@ -190,6 +190,8 @@ LD_3level_contage_results <- data.frame(coef=fixef(LD_3level_contage),
 (LD_3level_contage_results <- round(LD_3level_contage_results, 4))
 .. ..
 
+Migration duration analysis
+===============================================================================
 
 Discussion
 ===============================================================================

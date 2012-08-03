@@ -33,10 +33,10 @@ PLOT_HEIGHT <- 5.67
 
 # Months.total is how many months of the household registry to include (max 
 # number of months is 126, so to include all the months set LAST_MONTH to 126).
-LAST_MONTH <- 36
+LAST_MONTH <- 60
 # MONTHS_AWAY gives the number of months a person must be away for a move to be 
 # considered a migration.
-MONTHS_AWAY <- 1
+MONTHS_AWAY <- 3
 
 print("Loading data...")
 load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
