@@ -149,6 +149,13 @@ mig.LL[mig.LL==0] <- NA # No migration
 mig.LL[everreturn] <- NA
 mig.type[mig.LL=="LL"] <- "LL"
 
+# Save mig.type for use in fuelwood usage model
+mig.type.save <- mig.type
+names(mig.type.save) <- names(hhreg$place1_cols)
+mig.type.save <- cbind(mig.type.save, hhreg[hhid_cols])
+mig.type.save$respid <- hhreg$respid
+save(mig.type.save, file=paste("data/migration-uncensored_mig_type-", MONTHS_AWAY, "_months_away-up_to_month_", LAST_MONTH, ".Rdata", sep=""))
+
 # Code and plot the average amount of time people are gone for (for first 
 # migrations outside of the valley).
 LD_first_migration_col <- apply(mig.type, 1, function(x) match("LD", x, nomatch=NA))
