@@ -5,16 +5,12 @@
 
 library(Hmisc)
 library(ggplot2)
+library(lme4)
+
 PLOT_WIDTH <- 8.33
 PLOT_HEIGHT <- 5.53
 DPI <-  300
 theme_update(theme_grey(base_size=18))
-
-# Find conversions from bhari to kg, and from cart and quintal to bhari
-load("/media/Zvoleff_Passport/Data/Nepal/Fall_2009_Fieldwork/HHWoodUsage/R/hhwu2.Rdata")
-summary(hhwu2$D0.Mass.Bhari)
-summary(hhwu2$D0.Bhari.Cart)
-summary(hhwu2$D0.Cart.Quintal)
 
 load("/media/truecrypt1/Nepal/CVFS_R_format/t3ag.Rdata")
 # Need months 108-119 from the household registry (January 2006-December 2006)
@@ -55,7 +51,6 @@ hhsizes <- hhsizes[-c(1,2),]
 hhsize.mean <- apply(hhsizes[2:ncol(hhsizes)], 1, mean, na.rm=T)
 hhsize.mean <- data.frame(hhid=hhsizes$hhid, hhsize.mean)
 
-
 ###############################################################################
 #  Calculate household ethnicities by taking the mean and rounding
 ethnic_hhid <- data.frame(ethnic=hhreg$ethnic, hhid=hhreg$hhid108)
@@ -86,29 +81,22 @@ mig.cols <- mig.cols[9:length(mig.cols)]
 
 mig.type.save[mig.cols] <- mig.type.save[mig.cols] == "LD"
 
-apply(mig.type.save[mig.type.save1
+#FINISHED HERE
+# Look into using the t2 data - don't need consumption, it would  be w/in 60 
+# months, and it would have better LD migration data
+apply(mig.type.save[mig.type.save1)
 
-migr.jan05.col<- grep('^migr96$', names(mig.dist.merged))
-migr <- mig.dist.merged[c(migr.jan05.col:(migr.jan05.col+23))]
-hhid.jan05.col<- grep('^hhid96$', names(mig.dist.merged))
-hhid <- mig.dist.merged[c(hhid.jan05.col:(hhid.jan05.col+23))]
-monthnum <- 96
-for (colnum in 1:ncol(migr)) {
-    this.numLDmigr <- aggregate(migr[,colnum]=="LD", 
-                           by=list(hhid=hhid[,colnum]), sum, na.rm=T)
-    names(this.numLDmigr) <- c("hhid",  paste("numLDmigr", monthnum, sep=""))
-    if (monthnum == 96) {
-        numLDmigr <- this.numLDmigr
-    } else {
-        numLDmigr <- merge(numLDmigr, this.numLDmigr)
-    }
-    monthnum <- monthnum + 1
-}
-# Drop the first two rows (the missing value code rows):
-numLDmigr <- numLDmigr[-c(1,2),]
-numLDmigr.total <- apply(numLDmigr[2:ncol(numLDmigr)], 1, sum, na.rm=T)
-numLDmigr <- data.frame(hhid=numLDmigr$hhid, numLDmigr.total, 
-                        anyLDmigr=(numLDmigr.total>=1))
+###############################################################################
+# Add in forest distances and Narayanghat distances columns
+load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/CVFS_NBHs_forest_distances_recode.Rdata")
+forest_dist$NEIGHID <- sprintf("%03i", forest_dist$NEIGHID)
+
+load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
+nbh_data <- merge(forest_dist, nbh_recode)
+columns <- grep('^(NEIGHID|BZ_meters|CNP_meters|closest_type|closest_meters|dist_nara)$', names(nbh_data))
+nbh_data <- nbh_data[columns]
+nbh_data$closest_type <- factor(nbh_data$closest_type)
+nbh_data$closest_km <- nbh_data$closest_meters / 1000
 
 ###############################################################################
 # Add in other predictors and calculate fuelwood usage
@@ -118,13 +106,6 @@ numLDmigr <- data.frame(hhid=numLDmigr$hhid, numLDmigr.total,
 # 	t3e15.1a - bhari of firewood
 # 	t3e15.1b - carts of firewood
 # 	t3e15.1c - quintal of firewood
-fwusage.bhari<- t3ag$t3e15.1a
-fwusage.bhari[is.na(fwusage.bhari)] <- 0
-fwusage.cart <- t3ag$t3e15.1b
-fwusage.cart[is.na(fwusage.cart)] <- 0
-fwusage.quintal <- t3ag$t3e15.1c
-fwusage.quintal[is.na(fwusage.quintal)] <- 0
-fwusage.kg <- 28.3*fwusage.bhari + 28.3*15*fwusage.cart + 28.3*15*3*fwusage.quintal
 # Make a 6 character t3 household ID
 t3hhid <- paste(t3ag$t3.neigh, paste('0', t3ag$t3.house, sep=""), sep="")
 
@@ -142,20 +123,30 @@ income_gt50k[income_gt50k=0] <- NA
 income_gt50k[income_gt50k=1] <- 0
 income_gt50k[income_gt50k=2] <- 1
 
-fwusage <- data.frame(hhid=t3hhid, fwusage.kg, anynonwood, anywood=t3ag$t3e15, income_gt50k)
+fwusage <- data.frame(hhid=t3hhid, NEIGHID=t3ag$t3.neigh, anynonwood, anywood=t3ag$t3e15, income_gt50k, elec_avail=t3ag$t3c30)
+fwusage$elec_avail <- factor(fwusage$elec_avail)
+fwusage$anywood <- factor(fwusage$anywood)
 fwusage <- merge(fwusage, ethnic)
 fwusage <- merge(fwusage, meangender)
 fwusage <- merge(fwusage, hhsize.mean)
-fwusage <- merge(fwusage, numLDmigr)
-fwusage$fwusage.kg.perday <- fwusage$fwusage.kg/(365 * fwusage$hhsize.mean)
+fwusage <- merge(fwusage, nbh_data)
 
-# Potential predictor variables:
-# 	ethnic group
-# 	HH size
-# 	distance from national park
-# 	distance from comm. forest
-# 	distance from comm. forest
-fwuse <- glm(anywood ~ hhsize.mean + ethnic + I(gender/2), data=fwusage, family="binomial")
-summary(fwuse)
-exp(coef(fwuse))
+# For compatibility with GLMER, remove labels added by Hmisc
+for (i in 1:ncol(fwusage)) {
+    z<-class(fwusage[[i]])
+    if (length(z) == 1 && z =='labelled'){
+       class(fwusage[[i]])<- NULL
+       attr(fwusage[[i]],'label')<-NULL
+    } else if (z[[1]]=='labelled'){
+       class(fwusage[[i]])<-z[-1]
+       attr(fwusage[[i]],'label')<-NULL
+    }
+}
 
+fwuse.prob.glm <- glm(anywood ~ hhsize.mean + ethnic + I(gender/2) + elec_avail + closest_type + closest_km, data=fwusage, family="binomial")
+summary(fwuse.prob.glm)
+exp(coef(fwuse.prob.glm))
+
+fwuse.prob.ml <- glmer(anywood ~ hhsize.mean + ethnic + I(gender/2) + elec_avail + dist_nara + closest_type + (1 | NEIGHID), data=fwusage, family="binomial")
+summary(fwuse.prob.ml)
+exp(fixef(fwuse.prob.ml))
