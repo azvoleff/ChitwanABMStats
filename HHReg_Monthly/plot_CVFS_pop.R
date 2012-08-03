@@ -17,12 +17,12 @@ load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 # in a survey household
 livng_cols <- grep('^livng[0-9]*$', names(hhreg))
 place_cols <- grep('^place[0-9]*$', names(hhreg))
-in_Chitwan <- hhreg[livng_cols]==2 & hhreg[place_cols]<=151
+in_Chitwan <- hhreg[livng_cols]==2 & hhreg[place_cols] <= 151
 # Make a special indicator for_deaths (as "livng" will not equal 2 for the 
 # month they died, since it will be a 3 for "died in this month). So for_deaths 
 # only check the place variable to ensure they are were in one of the proper 
 # neighborhoods.
-in_Chitwan_deaths <- hhreg[place_cols]<=151
+in_Chitwan_deaths <- hhreg[place_cols] <= 151
 
 # Add a new set of columns coding whether a new marriage occurred prior to the 
 # survey in the month. Do this by using the marit columns.
@@ -58,6 +58,41 @@ maritstatus_chg <- cbind(marit1=matrix(NA, nrow(maritstatus_chg),1), maritstatus
 names(maritstatus_chg) <- sub('^marit', 'maritchg', names(maritstatus_chg))
 
 hhreg <- cbind(hhreg, maritstatus_chg)
+
+###############################################################################
+# Process divorces
+###############################################################################
+# Recode 1, 2, and 6 (married living with/without spouse, and separated) as 0, 
+# meaning married in that month, with no divorce. Recode 3, (unmarried) and 4 
+# (widowed) as NA, and 5 (divorced) as 1.
+marit_cols <- grep('^(marit)[0-9]*$', names(hhreg))
+divorce_codes <- hhreg[marit_cols]
+names(divorce_codes) <- sub('marit', 'divorce', names(divorce_codes))
+hhreg <- cbind(hhreg, divorce_codes)
+divorce_cols <- grep('^divorce[0-9]*$', names(hhreg))
+hhreg[divorce_cols][hhreg[divorce_cols] < 0] <- NA # Missing values
+hhreg[divorce_cols][hhreg[divorce_cols] == 1] <- 1 # Married living with spouse
+hhreg[divorce_cols][hhreg[divorce_cols] == 2] <- 1 # Married not living with spouse
+hhreg[divorce_cols][hhreg[divorce_cols] == 3] <- NA # Unmarried
+hhreg[divorce_cols][hhreg[divorce_cols] == 4] <- NA # Widowed
+hhreg[divorce_cols][hhreg[divorce_cols] == 5] <- -1 # Divorced
+hhreg[divorce_cols][hhreg[divorce_cols] == 6] <- 4 # Separated
+
+divorce <- hhreg[divorce_cols][2:length(divorce_cols)] -
+        hhreg[divorce_cols][1:(length(divorce_cols)-1)]
+# Add a column for time 1, which is only NAs as marital status is not known 
+# prior to the first month, so no change can be calculated.
+divorce <- cbind(divorce1=matrix(NA, nrow(divorce),1), divorce)
+# So the coding ends up:
+# 	-1 - 4   = -5 = separated -> divorced
+# 	1 - 4    = -3 = separated -> married
+# 	-1 - 1   = -2 = married -> divorced
+# 	4 - 1    =  1 = married -> separated
+# 	1 - -1   =  2 = divorced -> married
+# 	4 - -1   =  5 = divorced -> separated
+
+divorce <- apply(divorce, 2, function(div_row) factor(div_row, levels=c(-5, -3, -2, 0, 2, 3, 5), labels=c('Sep-Div', 'Sep-Mar' ,'Mar-Div', 'No Change', 'Mar-Sep', 'Div-Mar', 'Div-Sep')))
+table(as.matrix(divorce))
 
 ###############################################################################
 # Process_deaths.
