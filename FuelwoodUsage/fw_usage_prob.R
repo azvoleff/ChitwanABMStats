@@ -5,9 +5,9 @@
 
 library(Hmisc)
 library(ggplot2)
-PLOT_WIDTH = 8.33
-PLOT_HEIGHT = 5.53
-DPI=  300
+PLOT_WIDTH <- 8.33
+PLOT_HEIGHT <- 5.53
+DPI <-  300
 theme_update(theme_grey(base_size=18))
 
 # Find conversions from bhari to kg, and from cart and quintal to bhari
@@ -56,6 +56,24 @@ hhsizes <- hhsizes[-c(1,2),]
 hhsize.mean <- apply(hhsizes[2:ncol(hhsizes)], 1, mean, na.rm=T)
 hhsize.mean <- data.frame(hhid=hhsizes$hhid, hhsize.mean)
 
+
+###############################################################################
+#  Calculate household ethnicities by taking the mean and rounding
+ethnic_hhid <- data.frame(ethnic=hhreg$ethnic, hhid=hhreg$hhid109)
+ethnic_hhid <- ethnic_hhid[!is.na(ethnic_hhid$ethnic), ]
+ethnic_hhid <- ethnic_hhid[!is.na(ethnic_hhid$hhid), ]
+ethnic <- aggregate(ethnic_hhid$ethnic, by=list(hhid=ethnic_hhid$hhid), mean, na.rm=TRUE)
+ethnic$x <- round(ethnic$x)
+names(ethnic)[names(ethnic) == 'x'] <- 'ethnic'
+ethnic$ethnic <- factor(ethnic$ethnic, levels=c(1,2,3,4,5), labels=c("UpHindu",
+        "HillTibeto", "LowHindu", "Newar", "TeraiTibeto"))
+
+# Make variable for mean gender under 15
+gender_hhid <- data.frame(gender=hhreg$gender, hhid=hhreg$hhid109)
+gender_hhid <- gender_hhid[!is.na(gender_hhid$gender), ]
+gender_hhid <- gender_hhid[!is.na(gender_hhid$hhid), ]
+meangender <- aggregate(gender_hhid$gender, by=list(hhid=gender_hhid$hhid), mean, na.rm=TRUE)
+names(meangender)[names(meangender) == 'x'] <- 'gender'
 
 ###############################################################################
 # Count the number of LD migrants per household, per month, for Jan 2005 - Dec 
@@ -115,29 +133,19 @@ income_gt50k[income_gt50k=1] <- 0
 income_gt50k[income_gt50k=2] <- 1
 
 fwusage <- data.frame(hhid=t3hhid, fwusage.kg, anynonwood, anywood=t3ag$t3e15, income_gt50k)
+fwusage <- merge(fwusage, ethnic)
+fwusage <- merge(fwusage, meangender)
 fwusage <- merge(fwusage, hhsize.mean)
 fwusage <- merge(fwusage, numLDmigr)
-fwusage <- cbind(fwusage, fwusage.kg.perday=(fwusage$fwusage.kg/(365 * fwusage$hhsize.mean)))
+fwusage$fwusage.kg.perday <- fwusage$fwusage.kg/(365 * fwusage$hhsize.mean)
 
 # Potential predictor variables:
-# 	t3a48 - orchard land? (make dichotomous)
-# 	t3c31 - what heating sources do you use in your house for cooking?
-# 	t3e35 - bring fodder/firewood/thatch from community forest
-# 	t3b5 - any livestock
-# 	t3c45 - gas stove
 # 	ethnic group
 # 	HH size
 # 	distance from national park
 # 	distance from comm. forest
 # 	distance from comm. forest
-fwpred  <- lm(fwusage.kg.perday ~ hhsize.mean + I(hhsize.mean^2) + anynonwood + anyLDmigr + income_gt50k, data=fwusage)
+fwuse <- glm(anywood ~ hhsize.mean + ethnic + I(gender/2), data=fwusage, family="binomial")
+summary(fwuse)
+exp(coef(fwuse))
 
-fwpred  <- lm(fwusage.kg.perday ~ hhsize.mean + I(hhsize.mean^2) + anynonwood + anyLDmigr, data=fwusage)
-
-fwusage.trimmed <- fwusage[fwusage$fwusage.kg.perday<2,]
-fwusage.trimmed$fwusage.kg.perday <- fwusage.trimmed$fwusage.kg.perday*2
-
-fwpred.trimmed  <- lm(fwusage.kg.perday ~ hhsize.mean + I(hhsize.mean^2) + anynonwood + anyLDmigr, data=fwusage.trimmed)
-
-plot(fwusage$hhsize.mean, fwusage$fwusage.kg.perday)
-plot(fwusage.trimmed$hhsize.mean, fwusage.trimmed$fwusage.kg.perday)
