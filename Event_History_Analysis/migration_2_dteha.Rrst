@@ -55,8 +55,7 @@ theme_update(theme_bw(base_size=10))
 #update_geom_defaults("point", aes(size=2))
 #update_geom_defaults("line", aes(size=.75))
  
-#load("data/migration_data_wideformat-1_months_away.Rdata")
-load("data/migration_data-longformat-1_months_away-up_to_month_36.Rdata")
+load("data/migration_data-longformat-1_months_away-up_to_month_60.Rdata")
 # We are considering only LD migrations. So censor the LL migrations, set LD 
 # migrations to 1, and set no migration observations (NM) to 0
 migr_long$migr <- as.character(migr_long$migr)
