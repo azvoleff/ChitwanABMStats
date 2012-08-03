@@ -19,7 +19,6 @@ summary(hhwu2$D0.Cart.Quintal)
 load("/media/truecrypt1/Nepal/CVFS_R_format/t3ag.Rdata")
 # Need months 108-119 from the household registry (January 2006-December 2006)
 load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
-#load("C:/Users/azvoleff/Code/R/Chitwan_R_files/Migration/migrations_wideformat_all_LD_migrations-1_months_away.Rdata")
 
 # Calculate mean household size in 2006 (months 108-119).
 hhid.cols <- grep('^hhid1[0-1][0-9]$', names(hhreg))
@@ -59,7 +58,7 @@ hhsize.mean <- data.frame(hhid=hhsizes$hhid, hhsize.mean)
 
 ###############################################################################
 #  Calculate household ethnicities by taking the mean and rounding
-ethnic_hhid <- data.frame(ethnic=hhreg$ethnic, hhid=hhreg$hhid109)
+ethnic_hhid <- data.frame(ethnic=hhreg$ethnic, hhid=hhreg$hhid108)
 ethnic_hhid <- ethnic_hhid[!is.na(ethnic_hhid$ethnic), ]
 ethnic_hhid <- ethnic_hhid[!is.na(ethnic_hhid$hhid), ]
 ethnic <- aggregate(ethnic_hhid$ethnic, by=list(hhid=ethnic_hhid$hhid), mean, na.rm=TRUE)
@@ -69,7 +68,7 @@ ethnic$ethnic <- factor(ethnic$ethnic, levels=c(1,2,3,4,5), labels=c("UpHindu",
         "HillTibeto", "LowHindu", "Newar", "TeraiTibeto"))
 
 # Make variable for mean gender under 15
-gender_hhid <- data.frame(gender=hhreg$gender, hhid=hhreg$hhid109)
+gender_hhid <- data.frame(gender=hhreg$gender, hhid=hhreg$hhid108)
 gender_hhid <- gender_hhid[!is.na(gender_hhid$gender), ]
 gender_hhid <- gender_hhid[!is.na(gender_hhid$hhid), ]
 meangender <- aggregate(gender_hhid$gender, by=list(hhid=gender_hhid$hhid), mean, na.rm=TRUE)
@@ -78,6 +77,17 @@ names(meangender)[names(meangender) == 'x'] <- 'gender'
 ###############################################################################
 # Count the number of LD migrants per household, per month, for Jan 2005 - Dec 
 # 2006.
+load("../Event_History_Analysis/data/migration-uncensored_mig_type-1_months_away-up_to_month_126.Rdata")
+
+hhid.cols <- grep('^hhid1[0-1][0-9]$', names(mig.type.save))
+hhid.cols <- hhid.cols[9:length(hhid.cols)]
+mig.cols <- grep('^place1[0-1][0-9]$', names(mig.type.save))
+mig.cols <- mig.cols[9:length(mig.cols)]
+
+mig.type.save[mig.cols] <- mig.type.save[mig.cols] == "LD"
+
+apply(mig.type.save[mig.type.save1
+
 migr.jan05.col<- grep('^migr96$', names(mig.dist.merged))
 migr <- mig.dist.merged[c(migr.jan05.col:(migr.jan05.col+23))]
 hhid.jan05.col<- grep('^hhid96$', names(mig.dist.merged))
