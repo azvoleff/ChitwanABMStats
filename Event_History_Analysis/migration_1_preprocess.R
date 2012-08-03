@@ -36,10 +36,11 @@ PLOT_HEIGHT <- 5.67
 LAST_MONTH <- 60
 # MONTHS_AWAY gives the number of months a person must be away for a move to be 
 # considered a migration.
-MONTHS_AWAY <- 3
+MONTHS_AWAY <- 1
 
 print("Loading data...")
-load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+#load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
 # Drop the appropriate monthly columns if LAST_MONTH is < 126
 varying_cols <- grep('^[a-zA-Z]*[1-9][0-9]{0,2}$', names(hhreg))
 varying_cols_times <- as.numeric(gsub('[a-zA-Z]', '', names(hhreg)[varying_cols]))

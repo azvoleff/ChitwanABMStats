@@ -6,7 +6,7 @@
 # 
 # Follows analysis of Yabiku, 2006:
 #     Yabiku, S. T. 2006. Land use and marriage timing in Nepal. Population & 
-#     Environment 27 (5):445–461.
+#     Environment 27 (5):445-461.
 ###############################################################################
 
 # Hmisc is needed as hhreg is a "labelled" dataframe. If Hmisc is not included, 
@@ -24,7 +24,8 @@ LAST_MONTH <- 90 # Yabiku (2006) uses 90 months
 # censoring.
 ###############################################################################
 print("Loading data...")
-load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+#load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
 # Drop the appropriate monthly columns if LAST_MONTH is < 126
 varying_cols <- grep('^[a-zA-Z]*[1-9][0-9]{0,2}$', names(hhreg))
 varying_cols_times <- as.numeric(gsub('[a-zA-Z]', '', names(hhreg)[varying_cols]))
@@ -39,14 +40,16 @@ place_cols <- grep('^(place)[0-9]*$', names(hhreg))
 age_cols <- grep('^age[0-9]*$', names(hhreg))
 
 # Load the interpolated LULC data:
-load("V:/Nepal/ICPSR_0538_Restricted/Recode/interpolated_percent_agveg.Rdata")
+#load("V:/Nepal/ICPSR_0538_Restricted/Recode/interpolated_percent_agveg.Rdata")
+load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/interpolated_percent_agveg.Rdata")
 interp_percagveg_cols <- grep('^interp_percagveg[0-9]*$', names(interp_percagveg))
 interp_percagveg_cols <- interp_percagveg_cols[1:LAST_MONTH]
 interp_logpercagveg <- log(interp_percagveg[interp_percagveg_cols] + 1)
 interp_logpercagveg <- data.frame(NEIGHID=interp_percagveg$NEIGHID, interp_logpercagveg)
 names(interp_logpercagveg) <- sub("percagveg", "logpercagveg", names(interp_logpercagveg))
 
-t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+#t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 # To merge with the hhreg data, need to convert the old format respondent ID 
 # (NNNHHSS) (where NNN is NBH ID, HH is household ID, and SS is subject ID) to 
 # NNNHHHSSS:
