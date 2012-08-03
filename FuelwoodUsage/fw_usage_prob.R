@@ -1,4 +1,4 @@
-#############################################################################
+###############################################################################
 # Does a series of models to try to predict fuelwood usage based on household 
 # size, etc.
 ###############################################################################
@@ -37,7 +37,8 @@ livng[livng != 1] <- 0
 # was administered)
 monthnum <- 108
 for (colnum in 1:ncol(livng)) {
-    this.hhsizes <- aggregate(livng[,colnum], by=list(hhid=hhid[,colnum]), sum, na.rm=T)
+    this.hhsizes <- aggregate(livng[,colnum], by=list(hhid=hhid[,colnum]), sum, 
+                              na.rm=T)
     names(this.hhsizes) <- c("hhid",  paste("hhsize", monthnum, sep=""))
     if (monthnum == 108) {
         hhsizes <- this.hhsizes
@@ -143,10 +144,13 @@ for (i in 1:ncol(fwusage)) {
     }
 }
 
-fwuse.prob.glm <- glm(anywood ~ hhsize.mean + ethnic + I(gender/2) + elec_avail + closest_type + closest_km, data=fwusage, family="binomial")
-summary(fwuse.prob.glm)
-exp(coef(fwuse.prob.glm))
+fwuse_prob_glm <- glm(anywood ~ hhsize.mean + ethnic + gender + elec_avail + closest_type + closest_km, data=fwusage, family="binomial")
+summary(fwuse_prob_glm)
+exp(coef(fwuse_prob_glm))
 
-fwuse.prob.ml <- glmer(anywood ~ hhsize.mean + ethnic + I(gender/2) + elec_avail + dist_nara + closest_type + (1 | NEIGHID), data=fwusage, family="binomial")
-summary(fwuse.prob.ml)
-exp(fixef(fwuse.prob.ml))
+fwuse_prob_ml <- glmer(anywood ~ hhsize.mean + ethnic + gender + elec_avail + dist_nara + closest_type + (1 | NEIGHID), data=fwusage, family="binomial")
+summary(fwuse_prob_ml)
+fwuse_prob_ml_OR <- data.frame(coef=fixef(fwuse_prob_ml), 
+                              OR=round(exp(fixef(fwuse_prob_ml)), 4))
+(fwuse_prob_ml_OR <- round(fwuse_prob_ml_OR, 4))
+write.csv(fwuse_prob_ml_OR, file="fwuse_prob_ml_ODDS.csv")
