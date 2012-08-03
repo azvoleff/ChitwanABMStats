@@ -39,7 +39,8 @@ theme_update(theme_grey(base_size=10))
 update_geom_defaults("line", aes(size=.2))
 
 # Load the full household registry dataset
-load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+#load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
 hhid_cols <- grep('^hhid[0-9]*$', names(hhreg))
 place_cols <- grep('^place[0-9]*$', names(hhreg))
 age_cols <- grep('^age[0-9]*$', names(hhreg))
@@ -239,7 +240,7 @@ month that the given household was last seen in the data.
       members were not lost to the survey, but instead moved to other 
       households.)
     - If members **are not** seen in the data after the household was lost,   
-      NO, then code the new HH as being lost to *out-migration* (as all HH 
+      then code the new HH as being lost to *out-migration* (as all HH 
       members were lost to the survey).
 
 .. {r recode-hh-loses}
@@ -313,6 +314,10 @@ qplot(mean_liv_w_s, facets=loss_type~hh_size, geom="histogram",
 
 Conclusions
 ===============================================================================
+
+Household-level In-migration
+_______________________________________________________________________________
+
 The majority of new households (total n = :r:`sum(!is.na(new_HHs$hh_source))`) 
 come from in-migration (n in-migration = 
 :r:`sum(new_HHs$hh_source=="in-migration")`) rather than fission (n fission = 
@@ -324,7 +329,7 @@ distribution.
 
 First derive a probability distribution for the number of in-migrating 
 households in a given month:
-.. {r}
+.. {r in_mig_hh_prob_dist}
 num_new_HHs <- aggregate(!is.na(new_HHs$hh_source),
         by=list(time=new_HHs$first_month, type=new_HHs$hh_source), sum,
         na.rm=TRUE)
@@ -384,4 +389,28 @@ qplot(max_age_prob, geom="histogram", xlab="Age of Household Head (years)",
 max_age_prob <- table(max_age_prob)
 sum(max_age_prob)
 (max_age_prob <- max_age_prob / sum(max_age_prob))
+.. ..
+
+Household-level Out-migration
+_______________________________________________________________________________
+
+First derive a probability distribution for the number of out-migrating 
+households in a given month. Note that we only use data from months 30 - 60 as 
+prior to month 30 households were followed regardless of where they moved in 
+Nepal.
+.. {r out_mig_hh_prob_dist}
+num_lost_HHs <- aggregate(!is.na(lost_HHs$loss_type),
+        by=list(time=lost_HHs$last_month, type=lost_HHs$loss_type), sum,
+        na.rm=TRUE)
+num_lost_HHs <- num_lost_HHs[num_lost_HHs$type == "out-migration" &
+                           num_lost_HHs$time <= 60 & num_lost_HHs$time > 30, ]
+table(num_lost_HHs$x)
+num_lost_HHs_prob <- cut(num_lost_HHs$x, breaks=seq(0,35,5))
+num_lost_HHs_prob <- num_lost_HHs_prob[!is.na(num_lost_HHs_prob)]
+qplot(num_lost_HHs_prob, geom="histogram",
+        xlab="Number of lost households (in a given month)",
+        ylab="Count")
+num_lost_HHs_prob  <- table(num_lost_HHs_prob)
+sum(num_lost_HHs_prob)
+(num_lost_HHs_prob <- num_lost_HHs_prob / sum(num_lost_HHs_prob))
 .. ..
