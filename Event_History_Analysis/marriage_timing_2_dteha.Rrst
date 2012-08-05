@@ -34,7 +34,7 @@ theme_update(theme_bw(base_size=10))
  
 load("data/marriage_data-longformat-up_to_month_90.Rdata")
 
-# Drop "other" ethnicity for consistency with Massey et al. (2010)
+# Drop "other" ethnicity for consistency with Yabiku et al. (2006)
 marit_long <- marit_long[!(marit_long$ethnic=="Other"),]
 marit_long$ethnic <- factor(marit_long$ethnic)
 
@@ -149,9 +149,9 @@ results, but use age in decades for the final model to be included in the ABM.
 
 .. {r marr_fixed_ageyears}
 marr_fixed <- glm(marit ~ ethnic + gender + age + I(age^2) + 
-                 interp_logpercagveg + SCHLFT_1996 + HLTHFT_1996 + BUSFT_1996 + 
-                 MARFT_1996 + EMPFT_1996 + schooling_yrs + in_school_1996 + 
-                 month, data=marit_long, family=binomial)
+                  interp_logpercagveg + SCHLFT_1996 + HLTHFT_1996 +
+                  BUSFT_1996 + MARFT_1996 + EMPFT_1996 + schooling_yrs + 
+                  in_school_1996 + month, data=marit_long, family=binomial)
 save(marr_fixed, file="models/marr_fixed.Rdata")
 summary(marr_fixed)
 (marr_fixed_or <- data.frame(coef=coef(marr_fixed), 

@@ -17,7 +17,7 @@ library(foreign)
 
 # LAST_MONTH is how many months of the household registry to include (max 
 # number of months is 126, so to include all the months set LAST_MONTH to 126).
-LAST_MONTH <- 90 # Yabiku (2006) uses 90 months
+LAST_MONTH <- 60 # Yabiku (2006) uses 90 months
 
 ###############################################################################
 # Recode the data as necessary and setup the marit_status matrix for later 
@@ -47,6 +47,9 @@ interp_percagveg_cols <- interp_percagveg_cols[1:LAST_MONTH]
 interp_logpercagveg <- log(interp_percagveg[interp_percagveg_cols] + 1)
 interp_logpercagveg <- data.frame(NEIGHID=interp_percagveg$NEIGHID, interp_logpercagveg)
 names(interp_logpercagveg) <- sub("percagveg", "logpercagveg", names(interp_logpercagveg))
+# Convert to numeric (1-3 digit) neighborhood ID so it will merge properly with 
+# the other data:
+interp_logpercagveg$NEIGHID <- as.numeric(interp_logpercagveg$NEIGHID)
 
 #t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
