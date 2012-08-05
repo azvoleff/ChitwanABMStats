@@ -8,7 +8,7 @@ Marriage Timing Discrete Time Event History Analysis Code for the ChitwanABM
 
 Follows analysis of Yabiku (2006):
     Yabiku, S. T. 2006. Land use and marriage timing in Nepal. Population & 
-    Environment 27 (5):445–461.
+    Environment 27 (5):445-461.
 
 Uses the ``glmer`` function from the R ``glmer`` package to conduct a 
 multilevel discrete-time event history analysis of marriage timing using the 
@@ -48,6 +48,34 @@ marit_long$agedecades <- marit_long$age/10
 # Create a monthly factor that can be used to remove the effects of seasonal 
 # variation in marriage rates
 marit_long$month <- factor(marit_long$time %% 12 + 1)
+
+# Load LHC to get in_school variables and labor variables
+lhc <- read.xport('/media/Zvoleff_Passport/Data/Nepal/CVFS_Public/20120722_Chitwan_Unrestricted_Data/ICPSR_04538/DS0013/04538_0013_data.xpt')
+old_respID <- sprintf("%07i", lhc$RESPID)
+NBHID <- sprintf("%03i", as.numeric(substr(old_respID,1,3)))
+HHID <- sprintf("%03i", as.numeric(substr(old_respID,4,5)))
+SUBJID <- sprintf("%03i", as.numeric(substr(old_respID,6,7)))
+lhc$respid <- paste(NBHID, HHID, SUBJID, sep="")
+lhc_vars <- with(lhc, data.frame(respid, wage_job_ever=WAGEYN, salaried_job_ever=SALYN))
+lhc_vars$in_school_1996 <- lhc$SCHL2053
+# Code 1, and 2 (beginning and continuation, as attending. Code 3 and 4 
+# (ending, and beg+end in same year) as not attending. Code missing (-1 and -2) 
+# as NA.
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==2] <- 1
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==3] <- 0
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==4] <- 0
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==-1] <- NA
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==-2] <- NA
+marit_long <- merge(marit_long, lhc_vars, all.x=TRUE)
+
+# Merge community context variables
+load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
+nbh_level_vars_cols <- grep('^(NEIGHID|elec_avail|avg_yrs_services_lt15|dist_nara|HLTHFT_1996|SCHLFT_1996|BUSFT_1996|MARFT_1996|EMPFT_1996)$',
+        names(nbh_recode))
+nbh_level_vars <- nbh_recode[nbh_level_vars_cols]
+nbh_level_vars$NEIGHID <- as.numeric(nbh_level_vars$NEIGHID)
+marit_long <- merge(marit_long, nbh_level_vars, by.x="originalNBH", by.y="NEIGHID", 
+                   all.x=TRUE)
 .. ..
 
 Basic Statistics
@@ -121,8 +149,9 @@ results, but use age in decades for the final model to be included in the ABM.
 
 .. {r marr_fixed_ageyears}
 marr_fixed <- glm(marit ~ ethnic + gender + age + I(age^2) + 
-                 interp_logpercagveg + schooling_yrs + month, data=marit_long, 
-                 family=binomial)
+                 interp_logpercagveg + SCHLFT_1996 + HLTHFT_1996 + BUSFT_1996 + 
+                 MARFT_1996 + EMPFT_1996 + schooling_yrs + in_school_1996 + 
+                 month, data=marit_long, family=binomial)
 save(marr_fixed, file="models/marr_fixed.Rdata")
 summary(marr_fixed)
 (marr_fixed_or <- data.frame(coef=coef(marr_fixed), 
@@ -132,8 +161,10 @@ write.csv(marr_fixed_or, file="models/marr_fixed_odds.csv")
 
 .. {r marr_fixed_agedecades}
 marr_fixed_agedecades <- glm(marit ~ ethnic + gender + agedecades + 
-                            I(agedecades^2) + interp_logpercagveg + 
-                            schooling_yrs + month, data=marit_long, 
+                            I(agedecades^2) + interp_logpercagveg +
+                            SCHLFT_1996 + HLTHFT_1996 + BUSFT_1996 +
+                            MARFT_1996 + EMPFT_1996 + schooling_yrs +
+                            in_school_1996 + month, data=marit_long, 
                             family=binomial)
 save(marr_fixed_agedecades, file="models/marr_fixed_agedecades.Rdata")
 summary(marr_fixed_agedecades)
@@ -146,7 +177,9 @@ Mixed-effects model - random intercept at neighborhood level
 _______________________________________________________________________________
 .. {r marr_2level}
 (marr_2level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + 
-                        interp_logpercagveg + schooling_yrs + month +
+                        interp_logpercagveg + interp_logpercagveg +
+                        SCHLFT_1996 + HLTHFT_1996 + BUSFT_1996 + MARFT_1996 + 
+                        EMPFT_1996 + schooling_yrs + in_school_1996 + month +
                         (1 | originalNBH), data=marit_long, 
                         family=binomial))
 (marr_2level_or <- data.frame(coef=fixef(marr_2level), 
@@ -159,9 +192,10 @@ Mixed-effects model - random intercepts at individual and neighborhood levels
 _______________________________________________________________________________
 .. {r marr_3level}
 (marr_3level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + 
-                        interp_logpercagveg + schooling_yrs + month +
-                        (1 | respid) + (1 | originalNBH), data=marit_long, 
-                        family=binomial))
+                        interp_logpercagveg + SCHLFT_1996 + HLTHFT_1996 + 
+                        BUSFT_1996 + MARFT_1996 + EMPFT_1996 + schooling_yrs + 
+                        in_school_1996 + month + (1 | respid) +
+                        (1 | originalNBH), data=marit_long, family=binomial))
 save(marr_3level, file="models/marr_3level.Rdata")
 (marr_3level_or <- data.frame(coef=fixef(marr_3level), 
                               OR=round(exp(fixef(marr_3level)), 4)))
@@ -171,6 +205,8 @@ write.csv(marr_3level_or, file="models/marr_3level_odds.csv")
 
 Conclusions
 ===============================================================================
+
+See below for comparison of the three models:
 .. list-table:: Model overview
     :widths: 40 20 20
     :header-rows: 1
