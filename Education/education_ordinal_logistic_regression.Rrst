@@ -20,7 +20,7 @@ opts_chunk$set(cache=TRUE, cache.path='knitr-cache/', fig.path='knitr-figure/',
 
 Setup and Load Data
 ===============================================================================
-.. {r setup, results='hide', echo=FALSE, cache=FALSE}
+.. {r setup, results='hide', cache=FALSE}
 library(ggplot2)
 library(rms) # Note 'Design' package was renamed to "rms"
 library(foreign)

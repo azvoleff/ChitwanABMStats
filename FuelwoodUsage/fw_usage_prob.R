@@ -71,23 +71,6 @@ meangender <- aggregate(gender_hhid$gender, by=list(hhid=gender_hhid$hhid), mean
 names(meangender)[names(meangender) == 'x'] <- 'gender'
 
 ###############################################################################
-# Count the number of LD migrants per household, per month, for Jan 2005 - Dec 
-# 2006.
-load("../Event_History_Analysis/data/migration-uncensored_mig_type-1_months_away-up_to_month_126.Rdata")
-
-hhid.cols <- grep('^hhid1[0-1][0-9]$', names(mig.type.save))
-hhid.cols <- hhid.cols[9:length(hhid.cols)]
-mig.cols <- grep('^place1[0-1][0-9]$', names(mig.type.save))
-mig.cols <- mig.cols[9:length(mig.cols)]
-
-mig.type.save[mig.cols] <- mig.type.save[mig.cols] == "LD"
-
-#FINISHED HERE
-# Look into using the t2 data - don't need consumption, it would  be w/in 60 
-# months, and it would have better LD migration data
-apply(mig.type.save[mig.type.save1)
-
-###############################################################################
 # Add in forest distances and Narayanghat distances columns
 load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/CVFS_NBHs_forest_distances_recode.Rdata")
 forest_dist$NEIGHID <- sprintf("%03i", forest_dist$NEIGHID)
