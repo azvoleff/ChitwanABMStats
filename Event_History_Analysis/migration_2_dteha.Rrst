@@ -50,12 +50,13 @@ library(ggplot2)
 library(lme4)
 library(epicalc) # for logistic.display
 library(arm) # for se.coef, se.fixef
+library(foreign)
 #theme_update(theme_grey(base_size=10))
 theme_update(theme_bw(base_size=10))
 #update_geom_defaults("point", aes(size=2))
 #update_geom_defaults("line", aes(size=.75))
  
-load("data/migration_data-longformat-1_months_away-up_to_month_60.Rdata")
+load("data/migration_data_longformat-1_months_away-up_to_month_36.Rdata")
 # We are considering only LD migrations. So censor the LL migrations, set LD 
 # migrations to 1, and set no migration observations (NM) to 0
 migr_long$migr <- as.character(migr_long$migr)
@@ -69,24 +70,71 @@ migr_long <- migr_long[!is.na(migr_long$migr),]
 migr_long <- migr_long[!(migr_long$ethnic=="Other"),]
 migr_long$ethnic <- factor(migr_long$ethnic)
 
+# Add an 'originHH' column, constructed from the first 6 digits digits of the 
+# nine digit respondent ID:
+migr_long$originHH <- sprintf("%06i", as.numeric(substr(migr_long$respid,1,6)))
+
 # To stabilize numerical algorithm (to avoid "false convergence" error in 
 # glmer), try categorizing age by decade, converting time to decades and try 
 # adding a continuous age variable in decades. This makes the betas on age and 
 # time larger and helps stabilizes the optimization algorithm.
-migr_long <- migr_long
-migr_long$agegrp <- rep("", nrow(migr_long))
-migr_long$agegrp[migr_long$age<=15] <- "lt15"
-migr_long$agegrp[migr_long$age>15 & migr_long$age<=25] <- "gt15lt25"
-migr_long$agegrp[migr_long$age>25 & migr_long$age<=35] <- "gt25lt35"
-migr_long$agegrp[migr_long$age>35 & migr_long$age<=45] <- "gt35lt45"
-migr_long$agegrp[migr_long$age>45 & migr_long$age<=55] <- "gt45lt55"
-migr_long$agegrp[migr_long$age>55] <- "gt55"
-migr_long$agegrp <- factor(migr_long$agegrp, levels=c("lt15", "gt15lt25", "gt25lt35", "gt35lt45", "gt45lt55", "gt55", ordered=TRUE))
-migr_long$agegrp <- factor(migr_long$agegrp)
+migr_long$agegrp <- cut(migr_long$age, c(15, 25, 35, 45, 55, 99))
+migr_long$agegrp <- relevel(migr_long$agegrp, "(55,99]")
 migr_long$timeyears <- migr_long$time/12
 migr_long$agedecades <- migr_long$age/10
 
-load("data/time_outside-1_months_away-up_to_month_36.Rdata")
+load("data/migration_time_outside-1_months_away-up_to_month_36.Rdata")
+
+# Merge other needed variables:
+load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
+nbh_level_vars_cols <- grep('^(NEIGHID|elec_avail|avg_yrs_services_lt15|dist_nara|total_t1|percagveg_t1|HLTHFT_1996|SCHLFT_1996|BUSFT_1996|MARFT_1996|EMPFT_1996)$',
+        names(nbh_recode))
+nbh_level_vars <- nbh_recode[nbh_level_vars_cols]
+nbh_level_vars$NEIGHID <- as.numeric(nbh_level_vars$NEIGHID)
+migr_long <- merge(migr_long, nbh_level_vars, by.x="originNBH", by.y="NEIGHID", 
+                   all.x=TRUE)
+
+lhc <- read.xport('/media/Zvoleff_Passport/Data/Nepal/CVFS_Public/20120722_Chitwan_Unrestricted_Data/ICPSR_04538/DS0013/04538_0013_data.xpt')
+old_respID <- sprintf("%07i", lhc$RESPID)
+NBHID <- sprintf("%03i", as.numeric(substr(old_respID,1,3)))
+HHID <- sprintf("%03i", as.numeric(substr(old_respID,4,5)))
+SUBJID <- sprintf("%03i", as.numeric(substr(old_respID,6,7)))
+lhc$respid <- paste(NBHID, HHID, SUBJID, sep="")
+lhc_vars <- with(lhc, data.frame(respid, wage_job_ever=WAGEYN, salaried_job_ever=SALYN))
+lhc_vars$in_school_1996 <- lhc$SCHL2053
+# Code 1, and 2 (beginning and continuation, as attending. Code 3 and 4 
+# (ending, and beg+end in same year) as not attending. Code missing (-1 and -2) 
+# as NA.
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==2] <- 1
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==3] <- 0
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==4] <- 0
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==-1] <- NA
+lhc_vars$in_school_1996[lhc_vars$in_school_1996==-2] <- NA
+migr_long <- merge(migr_long, lhc_vars, all.x=TRUE)
+
+# Now get years schooling data
+t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+old_respID <- sprintf("%07i", t1indiv$RESPID)
+NBHID <- sprintf("%03i", as.numeric(substr(old_respID,1,3)))
+HHID <- sprintf("%03i", as.numeric(substr(old_respID,4,5)))
+SUBJID <- sprintf("%03i", as.numeric(substr(old_respID,6,7)))
+t1indiv$respid <- paste(NBHID, HHID, SUBJID, sep="")
+years_schooling <- with(t1indiv, data.frame(respid, years_schooling=A1))
+migr_long <- merge(migr_long, years_schooling, all.x=TRUE)
+
+hhag <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0002_REST.xpt")
+# Convert IDs to new 6 digit format:
+old_hhID_hhag <- sprintf("%05i", hhag$HHID)
+hhag$NEIGHID <- sprintf("%03i", as.numeric(substr(old_hhID_hhag, 1, 3)))
+HHNUM_hhag <- sprintf("%03i", as.numeric(substr(old_hhID_hhag, 4, 5)))
+hhag$HHID <- paste(hhag$NEIGHID, HHNUM_hhag, sep="")
+hhag_recode <- with(hhag, data.frame(HHID, own_any_bari=BAA10A, own_any_khet=BAA18A, own_house_plot=BAA43, rented_out_land=BAA44))
+hhag_recode$own_any_bari[hhag_recode$own_any_bari == -1] <- 0
+hhag_recode$own_any_khet[hhag_recode$own_any_khet == -1] <- 0
+hhag_recode$own_any_farmland <- with(hhag_recode, own_any_bari==1 | own_any_khet==1)
+hhag_recode$own_any_farmland <- as.factor(hhag_recode$own_any_farmland)
+migr_long <- merge(migr_long, hhag_recode, by.x="originHH", by.y="HHID", 
+                   all.x=TRUE)
 .. ..
 
 Basic Statistics
@@ -121,25 +169,28 @@ Discrete-time Event History Models
 Fixed effect model
 _______________________________________________________________________________
 .. {r LD_fixed}
-LD_fixed <- glm(migr ~ ethnic + gender + agegrp + timeyears + I(timeyears**2),
-                    data=migr_long, family=binomial)
+LD_fixed <- glm(migr ~ ethnic + gender + agegrp + timeyears + I(timeyears**2) + 
+                years_schooling + in_school_1996 + I(log(MARFT_1996+1)) + 
+                own_any_farmland, data=migr_long, family=binomial)
 save(LD_fixed, file="models/migration_LD_fixed.Rdata")
 summary(LD_fixed)
 LD_fixed_results <- data.frame(coef=coef(LD_fixed),
-    odds_ratio=exp(coef(LD_fixed)), se=se.coef(LD_fixed))
+    odds_ratio=exp(coef(LD_fixed)), se_coef=se.coef(LD_fixed))
 (LD_fixed_results <- round(LD_fixed_results, 4))
 .. ..
 
 Mixed-effects model - random intercept at neighborhood level (age groups)
 _______________________________________________________________________________
 .. {r LD_2level_agegrps}
-LD_2level_agegrps <- glmer(migr ~ ethnic + gender + agegrp + timeyears + I(timeyears**2) +
-                            (1 | originNBH), data=migr_long, 
-                            family=binomial, verbose=TRUE)
+LD_2level_agegrps <- glmer(migr ~ ethnic + gender + agegrp + timeyears + 
+                           I(timeyears**2) + years_schooling + in_school_1996 + 
+                           I(log(MARFT_1996+1)) + (1 | originNBH), 
+                           data=migr_long, family=binomial)
 save(LD_2level_agegrps, file="models/migration_LD_2level_agegrps.Rdata")
 summary(LD_2level_agegrps)
 LD_2level_agegrps_results <- data.frame(coef=fixef(LD_2level_agegrps),
-    odds_ratio=exp(fixef(LD_2level_agegrps)), se=se.fixef(LD_2level_agegrps))
+                                        se_coef=se.fixef(LD_2level_agegrps),
+                                        odds_ratio=exp(fixef(LD_2level_agegrps)))
 LD_2level_agegrps_results <- round(LD_2level_agegrps_results, 4)
 (LD_2level_agegrps_results)
 .. ..
@@ -148,51 +199,14 @@ Mixed-effects model - random intercepts at individual and neighborhood level (ag
 _________________________________________________________________________________________
 
 .. {r LD_3level_agegrps}
-LD_3level_agegrps <- glmer(migr ~ ethnic + gender + agegrp + 
-                                timeyears + I(timeyears**2) + (1 | respid) +
-                                (1 | originNBH), data=migr_long, 
-                                family=binomial, verbose=TRUE)
+LD_3level_agegrps <- glmer(migr ~ ethnic + gender + agegrp + timeyears + 
+                           I(timeyears**2) + years_schooling + in_school_1996 + 
+                           I(log(MARFT_1996+1)) + (1 | respid) +
+                           (1 | originNBH), data=migr_long, family=binomial)
 save(LD_3level_agegrps, file="models/migration_LD_3level_agegrps.Rdata")
 summary(LD_3level_agegrps)
-LD_3level_agegrps_results <- data.frame(coef=fixef(LD_3level_agegrps),
-    odds_ratio=exp(fixef(LD_3level_agegrps)), se=se.fixef(LD_3level_agegrps))
+LD_3level_agegrps_results <- data.frame(coef=fixef(LD_3level_agegrps), 
+                                        se_coef=se.fixef(LD_3level_agegrps),
+                                        odds_ratio=exp(fixef(LD_3level_agegrps)))
 (LD_3level_agegrps_results <- round(LD_3level_agegrps_results, 4))
 .. ..
-
-Mixed-effects model - random intercept at neighborhood level (continuous age in decades)
-________________________________________________________________________________________
-.. {r LD_2level_contage}
-LD_2level_contage <- glmer(migr ~ ethnic + gender + agedecades + timeyears + I(timeyears**2) +
-                            (1 | originNBH), data=migr_long, 
-                            family=binomial, verbose=TRUE)
-save(LD_2level_contage, file="models/migration_LD_2level_contage.Rdata")
-summary(LD_2level_contage)
-LD_2level_contage_results <- data.frame(coef=fixef(LD_2level_contage),
-    odds_ratio=exp(fixef(LD_2level_contage)), 
-    se=se.fixef(LD_2level_contage))
-(LD_2level_contage_results <- round(LD_2level_contage_results, 4))
-.. ..
-
-Mixed-effects model - random intercepts at individual and neighborhood level (continuous age in decades)
-________________________________________________________________________________________________________
-
-.. {r LD_3level_contage}
-LD_3level_contage <- glmer(migr ~ ethnic + gender + agedecades + 
-                                timeyears + I(timeyears**2) + (1 | respid) +
-                                (1 | originNBH), data=migr_long, 
-                                family=binomial, verbose=TRUE)
-save(LD_3level_contage, file="models/migration_LD_3level_contage.Rdata")
-summary(LD_3level_contage)
-LD_3level_contage_results <- data.frame(coef=fixef(LD_3level_contage),
-    odds_ratio=exp(fixef(LD_3level_contage)), 
-    se=se.fixef(LD_3level_contage))
-(LD_3level_contage_results <- round(LD_3level_contage_results, 4))
-.. ..
-
-Migration duration analysis
-===============================================================================
-
-Discussion
-===============================================================================
-
-The fixed effect model (using GLM with a person-history dataset)
