@@ -20,7 +20,7 @@ library(foreign)
 
 # Months.total is how many months of the household registry to include (max 
 # number of months is 126, so to include all the months set LAST_MONTH to 126).
-LAST_MONTH <- 60
+LAST_MONTH <- 72
 
 print("Loading data...")
 #load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")

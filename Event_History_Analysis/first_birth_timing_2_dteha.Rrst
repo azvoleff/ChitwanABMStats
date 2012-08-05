@@ -9,9 +9,9 @@ First Birth Timing Discrete Time Event History Analysis Code for the ChitwanABM
 Follows analysis of Ghimire and Hoelter (2007), and Axinn and Ghimire (2010):
 
     - Ghimire, D. J., and L. F. Hoelter. 2007. Land use and first birth timing 
-      in an agricultural setting. Population & Environment 28:289–320.
+      in an agricultural setting. Population & Environment 28:289-320.
     - Ghimire, D. J., and W. G. Axinn. 2010. Community context, land use, and 
-      first birth. Rural Sociology 75 (3):478–513.
+      first birth. Rural Sociology 75 (3):478-513.
 
 Uses the ``glmer`` function from the R ``glmer`` package to conduct a 
 multilevel discrete-time event history analysis of first birth timing using the 
@@ -28,6 +28,7 @@ opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
 
 .. {r setup, results='hide', messages=FALSE, cache=FALSE}
 library(ggplot2)
+library(languageR)
 library(lme4)
 library(epicalc) # for logistic.display
 library(arm) # for se.coef, se.fixef
@@ -48,35 +49,37 @@ first_preg_long$ethnic <- factor(first_preg_long$ethnic)
 # I15 mother's work
 # I7 mother school (ever)
 # I19 mother's number of children
-t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 old_respID <- sprintf("%07i", t1indiv$RESPID)
 NBHID <- sprintf("%03i", as.numeric(substr(old_respID,1,3)))
 HHID <- sprintf("%03i", as.numeric(substr(old_respID,4,5)))
 SUBJID <- sprintf("%03i", as.numeric(substr(old_respID,6,7)))
 t1indiv$RESPID <- paste(NBHID, HHID, SUBJID, sep="")
-parents_char_cols <- grep('^(I17|I11|I15|I7|I19)$', names(t1indiv))
+parents_char_cols <- grep('^(I17|I11|I15|I7|I19|I21)$', names(t1indiv))
 parents_char <- t1indiv[parents_char_cols]
 names(parents_char)[grep('^I17$', names(parents_char))] <- "father_work"
 names(parents_char)[grep('^I11$', names(parents_char))] <- "father_school"
 names(parents_char)[grep('^I15$', names(parents_char))] <- "mother_work"
 names(parents_char)[grep('^I7$', names(parents_char))] <- "mother_school"
 names(parents_char)[grep('^I19$', names(parents_char))] <- "mother_num_children"
+names(parents_char)[grep('^I19$', names(parents_char))] <- "mother_num_children"
+names(parents_char)[grep('^I21$', names(parents_char))] <- "parents_contracep_ever"
 parents_char[parents_char < 0] <- NA # will be replaced with resampling
 parents_char <- cbind(respid=t1indiv$RESPID, parents_char)
-first_preg_long <- merge(first_preg_long, parents_char)
+first_preg_long <- merge(first_preg_long, parents_char, all.x=TRUE)
 
 first_preg_long$marr_duration <- cut(first_preg_long$n_months_marr, breaks=c(0, 6, 12, 18, 24, 30, 36, 42, 999), right=FALSE)
 first_preg_long$marr_duration <- relevel(first_preg_long$marr_duration, "[42,999)")
 first_preg_long$schooling_yrs_cat <- cut(first_preg_long$n_months_marr, breaks=c(0, 4, 7, 11, 99), right=FALSE)
 
 # Load the neighborhood-level data to merge neighborhood-level covariates
-load("V:/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
+load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
 nbh_level_vars_cols <- grep('^(NEIGHID|elec_avail|avg_yrs_services_lt15|dist_nara|total_t1|percagveg_t1)$',
         names(nbh_recode))
 nbh_level_vars <- nbh_recode[nbh_level_vars_cols]
 
 first_preg_long$originalNBH <- factor(sprintf("%03d", first_preg_long$originalNBH))
-first_preg_long <- merge(first_preg_long, nbh_level_vars, by.x='originalNBH', by.y='NEIGHID')
+first_preg_long <- merge(first_preg_long, nbh_level_vars, by.x='originalNBH', by.y='NEIGHID', all.x=TRUE)
 
 # Convert total area from square meters to square kilometers
 first_preg_long$total_t1 <- first_preg_long$total_t1 / 1000000
@@ -164,7 +167,8 @@ model_formula <- 'first_preg ~ percagveg_t1 +
                                mother_work +
                                father_school +
                                mother_school + 
-                               mother_num_children'
+                               mother_num_children +
+                               parents_contracep_ever'
 .. ..
 
 Fixed effect model
@@ -175,7 +179,7 @@ save(first_preg_fixed, file="models/first_preg_fixed.Rdata")
 summary(first_preg_fixed)
 (first_preg_fixed_results <- cbind(coef=coef(first_preg_fixed),  
                                     OR=exp(coef(first_preg_fixed))))
-write.csv(first_preg_fixed_results$table, file="models/first_preg_fixed_odds.csv")
+write.csv(first_preg_fixed_results, file="models/first_preg_fixed_odds.csv", row.names=FALSE)
 .. ..
 
 
@@ -184,8 +188,10 @@ _______________________________________________________________________________
 .. {r first_preg_2level}
 first_preg_2level_formula <- as.formula(paste(model_formula, '+ (1 | originalNBH)'))
 (first_preg_2level <- glmer(first_preg_2level_formula,
-                        data=first_preg_long, family=binomial, verbose=TRUE))
-(first_preg_2level_or <- round(exp(fixef(first_preg_2level)), 4))
+                        data=first_preg_long, family=binomial))
+(first_preg_2level_or <- round(data.frame(coef=fixef(first_preg_2level), 
+                                          OR=exp(fixef(first_preg_2level))), 
+                                          4))
 save(first_preg_2level, file="models/first_preg_2level.Rdata")
 write.csv(first_preg_2level_or, file="models/first_preg_2level_odds.csv")
 .. ..
@@ -193,12 +199,13 @@ write.csv(first_preg_2level_or, file="models/first_preg_2level_odds.csv")
 Mixed-effects model - random intercepts at individual and neighborhood levels
 _______________________________________________________________________________
 .. {r first_preg_3level}
-library(languageR)
 first_preg_3level_formula <- as.formula(paste(model_formula, '+ (1 | respid) + (1 | originalNBH)'))
 (first_preg_3level <- glmer(first_preg_3level_formula, data=first_preg_long, 
-                        family=binomial, verbose=TRUE))
+                        family=binomial))
 save(first_preg_3level, file="models/first_preg_3level.Rdata")
-(first_preg_3level_or <- round(exp(fixef(first_preg_3level)), 4))
+(first_preg_3level_or <- round(data.frame(coef=fixef(first_preg_3level), 
+                                          OR=exp(fixef(first_preg_3level))), 
+                                          4))
 write.csv(first_preg_3level_or, file="models/first_preg_3level_odds.csv")
 .. ..
 
