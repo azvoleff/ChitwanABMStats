@@ -184,8 +184,8 @@ _______________________________________________________________________________
 .. {r LD_2level_agegrps}
 LD_2level_agegrps <- glmer(migr ~ ethnic + gender + agegrp + timeyears + 
                            I(timeyears**2) + years_schooling + in_school_1996 + 
-                           I(log(MARFT_1996+1)) + (1 | originNBH), 
-                           data=migr_long, family=binomial)
+                           I(log(MARFT_1996+1)) + own_any_farmland +
+                           (1 | originNBH), data=migr_long, family=binomial)
 save(LD_2level_agegrps, file="models/migration_LD_2level_agegrps.Rdata")
 summary(LD_2level_agegrps)
 LD_2level_agegrps_results <- data.frame(coef=fixef(LD_2level_agegrps),
@@ -201,8 +201,9 @@ ________________________________________________________________________________
 .. {r LD_3level_agegrps}
 LD_3level_agegrps <- glmer(migr ~ ethnic + gender + agegrp + timeyears + 
                            I(timeyears**2) + years_schooling + in_school_1996 + 
-                           I(log(MARFT_1996+1)) + (1 | respid) +
-                           (1 | originNBH), data=migr_long, family=binomial)
+                           I(log(MARFT_1996+1)) + own_any_farmland +
+                           (1 | respid) + (1 | originNBH), data=migr_long, 
+                           family=binomial)
 save(LD_3level_agegrps, file="models/migration_LD_3level_agegrps.Rdata")
 summary(LD_3level_agegrps)
 LD_3level_agegrps_results <- data.frame(coef=fixef(LD_3level_agegrps), 
