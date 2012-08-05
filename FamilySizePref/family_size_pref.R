@@ -6,10 +6,11 @@ library(Hmisc) # contains label function
 library(ggplot2) # contains label function
 library(foreign)
 
-t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+#t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 t1indiv$GENDER <- factor(t1indiv$GENDER, labels=c("male", "female"))
 
-make.txtprob <- function(probs, binlims, param.name) {
+make_txtprob <- function(probs, binlims, param.name) {
     # param.name is the name used by the ChitwanABM model for this parameter.
     binlims <- paste(round(binlims, digits=4), collapse=", ")
     probs <- paste(round(probs, digits=4), collapse=", ")
@@ -39,14 +40,37 @@ desnumchild$numchild[is.na(desnumchild$numchild)] <- -1
 save(desnumchild, file="desnumchild.Rdata")
 
 # Make a distribution to use in the model
-numchild.prob <- data.frame(table(desnumchild$numchild))
-names(numchild.prob) <- c("bin", "numchild")
-numchild.prob$bin <- as.numeric(as.character(numchild.prob$bin))
-numchild.prob <- cbind(numchild.prob, prob=(numchild.prob$numchild/sum(numchild.prob$numchild)))
-write(make.txtprob(numchild.prob$prob, c(numchild.prob$bin, 10),
+numchild_prob <- data.frame(table(desnumchild$numchild))
+names(numchild_prob) <- c("bin", "numchild")
+numchild_prob$bin <- as.numeric(as.character(numchild_prob$bin))
+numchild_prob <- cbind(numchild_prob, prob=(numchild_prob$numchild/sum(numchild_prob$numchild)))
+write(make_txtprob(numchild_prob$prob, c(numchild_prob$bin, 10),
         "prob.num.children.desired"), file="prob.num.children.desired.txt")
-
 qplot(numchild, facets=GENDER~., geom="histogram", 
         xlab="Desired Number of Children", ylab="Count", binwidth=1,
         data=desnumchild)
 ggsave("desnumchild.png", width=8.33, height=5.53, dpi=300)
+
+numchild_low_prob <- numchild_prob
+# Eliminate people wanting more than 5 children, and double probability of 
+# zero, one, or two:
+numchild_low_prob$prob <- c(0.0125, 0.0011, 0.5896, 0.2715, 0.1660, 
+                            0.106, 0.055, .01, .005, .001, .001)
+numchild_low_prob$prob <- numchild_low_prob$prob / sum(numchild_low_prob$prob)
+write(make_txtprob(numchild_low_prob$prob, c(numchild_low_prob$bin, 10),
+        "prob.num.children.desired"), file="prob.num.children.desired_low.txt")
+qplot(bin, prob*100, xlab="Desired Number of Children",
+        ylab="Probability (%)", data=numchild_low_prob, binwidth=1)
+ggsave("prob_first_birth_low.png", width=8.33, height=5.53, dpi=300)
+
+numchild_high_prob <- numchild_prob
+# Eliminate people wanting more than 5 children, and double probability of 
+# zero, one, or two:
+numchild_high_prob$prob <- c(0.0125, 0.0011, 0.0317, 0.1, 0.215, 0.5660, 
+                            0.346, 0.15, 0.054, 0.02, 0.013)
+numchild_high_prob$prob <- numchild_high_prob$prob / sum(numchild_high_prob$prob)
+write(make_txtprob(numchild_high_prob$prob, c(numchild_high_prob$bin, 10),
+        "prob.num.children.desired"), file="prob.num.children.desired_high.txt")
+qplot(bin, prob*100, xlab="Desired Number of Children",
+        ylab="Probability (%)", data=numchild_high_prob, binwidth=1)
+ggsave("prob_first_birth_high.png", width=8.33, height=5.53, dpi=300)
