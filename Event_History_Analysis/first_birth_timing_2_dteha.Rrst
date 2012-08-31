@@ -21,7 +21,7 @@ monthly Chitwan Valley Family Study (CVFS) household registry data.
 require(knitr)
 # Setup reST options:
 options(width = 75)
-opts_chunk$set(cache=TRUE, cache.path='rst-cache/', fig.path='rst-figure/',
+opts_chunk$set(cache=TRUE, cache.path='knitr-cache/', fig.path='knitr-figure/',
     fig.width=4.5, fig.height=3, out.width='4.5in', out.height='3in', dpi=300, 
     dev='pdf')
 .. ..
