@@ -37,6 +37,7 @@ hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
         "HillTibeto", "LowHindu", "Newar", "TeraiTibeto", "Other"))
 hhreg$gender <- factor(hhreg$gender, labels=c("male", "female"))
 names(hhreg)[names(hhreg)=="place1"] <- "neighid"
+hhreg <- hhreg[hhreg$neighid <= 151, ]
 names(hhreg)[names(hhreg)=="hhid1"] <- "hhid"
 
 hhreg <- hhreg[(hhreg$neighid >= 1) & (hhreg$neighid <= 502) & !is.na(hhreg$neighid),]
@@ -51,4 +52,24 @@ xtabs(~ethnic + gender, data=hhreg, exclude=NULL)
 Now make a bar plot of the distribution:
 .. {r ethnicity-plot, fig.cap="Ethnicity Distribution in Chitwan in 1996"}
 qplot(ethnic, facets=gender~., geom="bar", data=hhreg)
+.. ..
+
+Now output a version aggregated by neighborhood and ethnicity so it can be 
+mapped in ArcGIS:make a bar plot of the distribution:
+
+.. {r ethnicity-plot, fig.cap="Ethnicity Distribution in Chitwan in 1996"}
+ethnic_by_nbh <- data.frame(NID=seq(1:151))
+ethnic_by_nbh$UpHindu <- aggregate(hhreg$ethnic=="UpHindu", 
+                                   by=list(hhreg$neighid), sum)$x
+ethnic_by_nbh$HillTibeto <- aggregate(hhreg$ethnic=="HillTibeto", 
+                                   by=list(hhreg$neighid), sum)$x
+ethnic_by_nbh$LowHindu <- aggregate(hhreg$ethnic=="LowHindu", 
+                                   by=list(hhreg$neighid), sum)$x
+ethnic_by_nbh$Newar <- aggregate(hhreg$ethnic=="Newar", 
+                                   by=list(hhreg$neighid), sum)$x
+ethnic_by_nbh$TeraiTibeto <- aggregate(hhreg$ethnic=="TeraiTibeto", 
+                                   by=list(hhreg$neighid), sum)$x
+ethnic_by_nbh$Other <- aggregate(hhreg$ethnic=="Other", 
+                                   by=list(hhreg$neighid), sum)$x
+write.csv(ethnic_by_nbh, file="ethnic_by_nbh.csv", row.names=F)
 .. ..

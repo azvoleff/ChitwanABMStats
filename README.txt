@@ -15,6 +15,4 @@ Department of Geography
 San Diego State University
 5500 Campanile Dr.
 San Diego, CA 92182-4493
-Phone: 619-594-8030
-Fax:   619-594-4938
 Email: azvoleff@mail.sdsu.edu
