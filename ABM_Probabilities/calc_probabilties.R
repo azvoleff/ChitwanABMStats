@@ -273,6 +273,14 @@ txtprobs <- c(txtprobs,
         marrlims, "probability.marriage.female"))
 write(txtprobs, file="probs.txt")
 
+write.csv(firstbirthprob, file="firstbirth_probs.csv", row.names=FALSE)
+write.csv(deathprob[deathprob$gender=="m",], file="death_probs_male.csv", row.names=FALSE)
+write.csv(deathprob[deathprob$gender=="f",], file="death_probs_female.csv", row.names=FALSE)
+write.csv(marrprob[marrprob$gender=="m",], file="marr_probs_male.csv", row.names=FALSE)
+write.csv(marrprob[marrprob$gender=="f",], file="marr_probs_female.csv", row.names=FALSE)
+write.csv(deathprob, file="death_probs.csv", row.names=FALSE)
+write.csv(marrprob, file="marr_probs.csv", row.names=FALSE)
+
 # Set a color blind compatible palette
 theme_update(theme_grey(base_size=16))
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")

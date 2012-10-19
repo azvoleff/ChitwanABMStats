@@ -88,6 +88,7 @@ sd(birth_int_long$birth_int)
 
 txtprobs <- make_txt_prob_dist(birth_int_prob$prob, birth_int_lims, 
                                "probability.birth_interval")
+write.csv(birth_int_prob, file="birth_int_probs.csv", row.names=FALSE)
 write(txtprobs, file="birth_int_probs.txt")
 
 # Set a color blind compatible palette

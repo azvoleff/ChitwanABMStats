@@ -6,8 +6,7 @@ library(Hmisc) # contains label function
 library(ggplot2) # contains label function
 library(foreign)
 
-#t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
-t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 t1indiv$GENDER <- factor(t1indiv$GENDER, labels=c("male", "female"))
 
 make_txtprob <- function(probs, binlims, param.name) {
@@ -46,6 +45,7 @@ numchild_prob$bin <- as.numeric(as.character(numchild_prob$bin))
 numchild_prob <- cbind(numchild_prob, prob=(numchild_prob$numchild/sum(numchild_prob$numchild)))
 write(make_txtprob(numchild_prob$prob, c(numchild_prob$bin, 10),
         "prob.num.children.desired"), file="prob.num.children.desired.txt")
+write.csv(numchild_prob, file="desnumchild_probs.csv", row.names=FALSE)
 qplot(numchild, facets=GENDER~., geom="histogram", 
         xlab="Desired Number of Children", ylab="Count", binwidth=1,
         data=desnumchild)
