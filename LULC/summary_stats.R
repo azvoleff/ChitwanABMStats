@@ -8,10 +8,10 @@ library("ggplot2")
 DPI <- 300
 WIDTH <- 6
 HEIGHT <- 4
-theme_update(theme_grey(base_size=24))
-update_geom_defaults("point", aes(size=3))
+#theme_update(theme_grey(base_size=24))
+#update_geom_defaults("point", aes(size=3))
 
-lulc.orig <- read.xport("/media/Local_Secure/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
+lulc.orig <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
 lulc.orig$NEIGHID <- as.ordered(lulc.orig$NEIGHID)
 lulc.orig <- lulc.orig[lulc.orig$NEIGHID <= 151,]
 lulc.orig <- lulc.orig[order(names(lulc.orig))]
@@ -72,6 +72,11 @@ colnames(lulc_summary) <- c("1996", "2001", "2008", "1996_perc",
         "2001_perc", "2008_perc")
 lulc_summary <- round(lulc_summary, 1)
 write.csv(lulc_summary, file="lulc_summary_stats.csv")
+
+t1_totals <- rowSums(lulc[time1_cols])
+min(t1_totals)
+max(t1_totals)
+mean(t1_totals)
 
 #qplot()
 #ggsave("lulc_summary.png", width=WIDTH, height=HEIGHT, dpi=DPI)

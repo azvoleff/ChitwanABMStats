@@ -12,14 +12,17 @@ PLOT_HEIGHT <- 5.53
 DPI <-  300
 theme_update(theme_grey(base_size=18))
 
-load("/media/truecrypt1/Nepal/CVFS_R_format/t3ag.Rdata")
+load("V:/Nepal/CVFS_R_format/t3ag.Rdata")
 # Need months 108-119 from the household registry (January 2006-December 2006)
-load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
+load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 
 # Calculate mean household size in 2006 (months 108-119).
 hhid.cols <- grep('^hhid1[0-1][0-9]$', names(hhreg))
 hhid.cols <- hhid.cols[9:length(hhid.cols)]
 hhid <- hhreg[hhid.cols]
+age.cols <- grep('^age1[0-1][0-9]$', names(hhreg))
+age.cols <- age.cols[9:length(age.cols)]
+age <- hhreg[age.cols]
 livng.cols <- grep('^livng1[0-1][0-9]$', names(hhreg))
 livng.cols <- livng.cols[9:length(livng.cols)]
 livng <- hhreg[livng.cols]
@@ -34,23 +37,37 @@ livng[livng != 1] <- 0
 
 ###############################################################################
 # Get mean household size for each household for Jan-Dec 2006 (the year t3ag 
-# was administered)
+# was administered). Also count how many women over age 6 are present in each 
+# household.
 monthnum <- 108
 for (colnum in 1:ncol(livng)) {
     this.hhsizes <- aggregate(livng[,colnum], by=list(hhid=hhid[,colnum]), sum, 
                               na.rm=T)
     names(this.hhsizes) <- c("hhid",  paste("hhsize", monthnum, sep=""))
+    # Count the number of women resident within the house, counting only women 
+    # within the most likely age range to be helping with fuelwood collection.
+    numwomen_collectors <- livng[, colnum] * (hhreg$gender == 1) &
+            (age[, colnum] > 8) & (age[, colnum] < 45)
+    this.numwomen <- aggregate(numwomen_collectors,
+                               by=list(hhid=hhid[,colnum]), sum, na.rm=T)
+    names(this.numwomen) <- c("hhid",  paste("numwomen", monthnum, sep=""))
     if (monthnum == 108) {
+        numwomen <- this.numwomen
         hhsizes <- this.hhsizes
     } else {
-        hhsizes <- merge(hhsizes, this.hhsizes)
+        numwomen <- merge(numwomen, this.numwomen, all=TRUE)
+        hhsizes <- merge(hhsizes, this.hhsizes, all=TRUE)
     }
     monthnum <- monthnum + 1
 }
 # Drop the first two rows (the missing value code rows):
 hhsizes <- hhsizes[-c(1,2),]
-hhsize.mean <- apply(hhsizes[2:ncol(hhsizes)], 1, mean, na.rm=T)
-hhsize.mean <- data.frame(hhid=hhsizes$hhid, hhsize.mean)
+hhsize_mean <- apply(hhsizes[2:ncol(hhsizes)], 1, mean, na.rm=T)
+hhsize_mean <- data.frame(hhid=hhsizes$hhid, hhsize_mean)
+# Drop the first two rows (the missing value code rows):
+numwomen <- numwomen[-c(1,2),]
+numwomen_mean <- apply(numwomen[2:ncol(numwomen)], 1, mean, na.rm=T)
+numwomen_mean <- data.frame(hhid=numwomen$hhid, numwomen_mean)
 
 ###############################################################################
 #  Calculate household ethnicities by taking the mean and rounding
@@ -72,10 +89,10 @@ names(meangender)[names(meangender) == 'x'] <- 'gender'
 
 ###############################################################################
 # Add in forest distances and Narayanghat distances columns
-load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/CVFS_NBHs_forest_distances_recode.Rdata")
+load("V:/Nepal/ICPSR_0538_Restricted/Recode/CVFS_NBHs_forest_distances_recode.Rdata")
 forest_dist$NEIGHID <- sprintf("%03i", forest_dist$NEIGHID)
 
-load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
+load("V:/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
 nbh_data <- merge(forest_dist, nbh_recode)
 columns <- grep('^(NEIGHID|BZ_meters|CNP_meters|closest_type|closest_meters|dist_nara)$', names(nbh_data))
 nbh_data <- nbh_data[columns]
@@ -112,7 +129,8 @@ fwusage$elec_avail <- factor(fwusage$elec_avail)
 fwusage$anywood <- factor(fwusage$anywood)
 fwusage <- merge(fwusage, ethnic)
 fwusage <- merge(fwusage, meangender)
-fwusage <- merge(fwusage, hhsize.mean)
+fwusage <- merge(fwusage, numwomen_mean)
+fwusage <- merge(fwusage, hhsize_mean)
 fwusage <- merge(fwusage, nbh_data)
 
 # For compatibility with GLMER, remove labels added by Hmisc
@@ -127,11 +145,14 @@ for (i in 1:ncol(fwusage)) {
     }
 }
 
-fwuse_prob_glm <- glm(anywood ~ hhsize.mean + ethnic + gender + elec_avail + closest_type + closest_km, data=fwusage, family="binomial")
+fwuse_prob_glm <- glm(anywood ~ hhsize_mean + ethnic + gender + elec_avail + closest_type + closest_km, data=fwusage, family="binomial")
 summary(fwuse_prob_glm)
 exp(coef(fwuse_prob_glm))
 
-fwuse_prob_ml <- glmer(anywood ~ hhsize.mean + ethnic + gender + elec_avail + dist_nara + closest_type + (1 | NEIGHID), data=fwusage, family="binomial")
+fwusage$numwomen_mean_GT1 <- fwusage$numwomen_mean > 1
+fwuse_prob_ml <- glmer(anywood ~ hhsize_mean + ethnic + numwomen_mean_GT1 + 
+                       elec_avail + dist_nara + closest_type + (1 | NEIGHID), 
+                       data=fwusage, family="binomial")
 summary(fwuse_prob_ml)
 fwuse_prob_ml_OR <- data.frame(coef=fixef(fwuse_prob_ml), 
                               OR=round(exp(fixef(fwuse_prob_ml)), 4))
