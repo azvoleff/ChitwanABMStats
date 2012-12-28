@@ -17,15 +17,15 @@ library(foreign)
 
 # LAST_MONTH is how many months of the household registry to include (max 
 # number of months is 126, so to include all the months set LAST_MONTH to 126).
-LAST_MONTH <- 60 # Yabiku (2006) uses 90 months
+LAST_MONTH <- 90 # Yabiku (2006) uses 90 months
 
 ###############################################################################
 # Recode the data as necessary and setup the marit_status matrix for later 
 # censoring.
 ###############################################################################
 print("Loading data...")
-#load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
-load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
+load("T:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+#load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
 # Drop the appropriate monthly columns if LAST_MONTH is < 126
 varying_cols <- grep('^[a-zA-Z]*[1-9][0-9]{0,2}$', names(hhreg))
 varying_cols_times <- as.numeric(gsub('[a-zA-Z]', '', names(hhreg)[varying_cols]))
@@ -40,8 +40,8 @@ place_cols <- grep('^(place)[0-9]*$', names(hhreg))
 age_cols <- grep('^age[0-9]*$', names(hhreg))
 
 # Load the interpolated LULC data:
-#load("V:/Nepal/ICPSR_0538_Restricted/Recode/interpolated_percent_agveg.Rdata")
-load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/interpolated_percent_agveg.Rdata")
+load("T:/Nepal/ICPSR_0538_Restricted/Recode/interpolated_percent_agveg.Rdata")
+#load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/interpolated_percent_agveg.Rdata")
 interp_percagveg_cols <- grep('^interp_percagveg[0-9]*$', names(interp_percagveg))
 interp_percagveg_cols <- interp_percagveg_cols[1:LAST_MONTH]
 interp_logpercagveg <- log(interp_percagveg[interp_percagveg_cols] + 1)
@@ -51,8 +51,8 @@ names(interp_logpercagveg) <- sub("percagveg", "logpercagveg", names(interp_logp
 # the other data:
 interp_logpercagveg$NEIGHID <- as.numeric(interp_logpercagveg$NEIGHID)
 
-#t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
-t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+t1indiv <- read.xport("T:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+#t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 # To merge with the hhreg data, need to convert the old format respondent ID 
 # (NNNHHSS) (where NNN is NBH ID, HH is household ID, and SS is subject ID) to 
 # NNNHHHSSS:

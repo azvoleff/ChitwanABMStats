@@ -23,8 +23,8 @@ library(foreign)
 LAST_MONTH <- 72
 
 print("Loading data...")
-#load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
-load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
+load("T:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+#load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
 # Drop the appropriate monthly columns if LAST_MONTH is < 126
 varying_cols <- grep('^[a-zA-Z]*[1-9][0-9]{0,2}$', names(hhreg))
 varying_cols_times <- as.numeric(gsub('[a-zA-Z]', '', names(hhreg)[varying_cols]))
@@ -40,8 +40,8 @@ age_cols <- grep('^(age)[0-9]*$', names(hhreg))
 ###############################################################################
 # Process LHC
 ###############################################################################
-#lhc <- read.xport('M:/Data/Nepal/CVFS_Public/20120722_Chitwan_Unrestricted_Data/ICPSR_04538/DS0013/04538_0013_data.xpt')
-lhc <- read.xport('/media/Zvoleff_Passport/Data/Nepal/CVFS_Public/20120722_Chitwan_Unrestricted_Data/ICPSR_04538/DS0013/04538_0013_data.xpt')
+lhc <- read.xport('G:/Data/Nepal/CVFS_Public/20120722_Chitwan_Unrestricted_Data/ICPSR_04538/DS0013/04538_0013_data.xpt')
+#lhc <- read.xport('/media/Zvoleff_Passport/Data/Nepal/CVFS_Public/20120722_Chitwan_Unrestricted_Data/ICPSR_04538/DS0013/04538_0013_data.xpt')
 lhc_marr_cols <- grep('^(M1E199[4-9])|(M1E20[0-5][0-9])$', names(lhc))
 marr_year <- apply(lhc[lhc_marr_cols], 1,
                     function(marit_row) match(1, marit_row))
@@ -54,8 +54,8 @@ marr_age_pre97_marriages <- lhc$AGE2053 - (length(lhc_marr_cols) - marr_year)
 lhc_vars <- with(lhc, data.frame(RESPID, ever_ster=BCYN8, sp_ever_ster=BCYN9,
                                  spouse_2=MYN2, marr_age_pre97_marriages))
 
-#t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
-t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+t1indiv <- read.xport("T:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+#t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 t1indiv <- merge(t1indiv, lhc_vars)
 # To merge with the hhreg data, need to convert the old format respondent ID 
 # (NNNHHSS) (where NNN is NBH ID, HH is household ID, and SS is subject ID) to 
