@@ -187,6 +187,9 @@ write.csv(first_preg_fixed_results, file="models/first_preg_fixed_odds.csv", row
 export_to_model_param(first_preg_fixed, 
                       "models/first_preg_fixed_rcparam.txt", 
                       "firstbirth.zv.coef")
+export_to_model_param(first_preg_fixed, 
+                      "models/first_preg_fixed_rcparams_default.txt", 
+                      "firstbirth.zv.coef", "rcparams.default")
 .. ..
 
 Now run again without the LULC covariate for comparison.
