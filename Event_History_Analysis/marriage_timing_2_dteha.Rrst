@@ -68,13 +68,18 @@ lhc_vars$in_school_1996[lhc_vars$in_school_1996==-2] <- NA
 marit_long <- merge(marit_long, lhc_vars, all.x=TRUE)
 
 # Merge community context variables
-load("T:/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
+load("W:/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
 nbh_level_vars_cols <- grep('^(NEIGHID|elec_avail|avg_yrs_services_lt15|dist_nara|HLTHFT_1996|SCHLFT_1996|BUSFT_1996|MARFT_1996|EMPFT_1996)$',
         names(nbh_recode))
 nbh_level_vars <- nbh_recode[nbh_level_vars_cols]
 nbh_level_vars$NEIGHID <- as.numeric(nbh_level_vars$NEIGHID)
 marit_long <- merge(marit_long, nbh_level_vars, by.x="originalNBH", by.y="NEIGHID", 
                    all.x=TRUE)
+
+
+# Rename NFO context variables to remove reference to year 1996, so that the
+# coefficient names in the ChitwanABM are not confusing.
+names(marit_long) <- gsub('_1996', '', names(marit_long))
 .. ..
 
 Basic Statistics
@@ -148,9 +153,9 @@ results, but use age in decades for the final model to be included in the ABM.
 
 .. {r marr_fixed_ageyears}
 marr_fixed <- glm(marit ~ ethnic + gender + age + I(age^2) + 
-                  interp_logpercagveg + SCHLFT_1996 + HLTHFT_1996 +
-                  BUSFT_1996 + MARFT_1996 + EMPFT_1996 + schooling_yrs + 
-                  in_school_1996 + month, data=marit_long, family=binomial)
+                  interp_logpercagveg + SCHLFT + HLTHFT +
+                  BUSFT + MARFT + EMPFT + schooling_yrs + 
+                  in_school + month, data=marit_long, family=binomial)
 save(marr_fixed, file="models/marr_fixed.Rdata")
 summary(marr_fixed)
 (marr_fixed_or <- data.frame(coef=coef(marr_fixed), 
@@ -163,10 +168,10 @@ export_to_model_param(marr_fixed, "models/marr_fixed_rcparams.txt",
 .. ..
 
 Now, for comparison, run the model again, but without the LULC covariate.
-.. {r marr_fixed_ageyears}
-marr_fixed_nolulc <- glm(marit ~ ethnic + gender + age + I(age^2) + SCHLFT_1996 + 
-                  HLTHFT_1996 + BUSFT_1996 + MARFT_1996 + EMPFT_1996 +
-                  schooling_yrs + in_school_1996 + month, data=marit_long, 
+.. {r marr_fixed_ageyears_no_lulc}
+marr_fixed_nolulc <- glm(marit ~ ethnic + gender + age + I(age^2) + SCHLFT + 
+                  HLTHFT + BUSFT + MARFT + EMPFT +
+                  schooling_yrs + in_school + month, data=marit_long, 
                   family=binomial)
 save(marr_fixed_nolulc, file="models/marr_fixed_nolulc.Rdata")
 summary(marr_fixed_nolulc)
@@ -178,13 +183,27 @@ export_to_model_param(marr_fixed_nolulc,
                       "marrtime.zv.coef", "rcfile")
 .. ..
 
+Now, for comparison, run the model again, but without the NFO covariates.
+.. {r marr_fixed_ageyears_no_NFOs}
+marr_fixed_no_nfos <- glm(marit ~ ethnic + gender + age + I(age^2) + 
+                          interp_logpercagveg + schooling_yrs + in_school 
+                          + month, data=marit_long, family=binomial)
+save(marr_fixed_no_nfos, file="models/marr_fixed_no_nfos.Rdata")
+summary(marr_fixed_no_nfos)
+(marr_fixed_no_nfos_or <- data.frame(coef=coef(marr_fixed_no_nfos), 
+                              OR=round(exp(coef(marr_fixed_no_nfos)), 4)))
+write.csv(marr_fixed_no_nfos_or, file="models/marr_fixed_no_nfos_odds.csv")
+export_to_model_param(marr_fixed_no_nfos, 
+                      "models/marr_fixed_no_nfos_rcparams.txt", 
+                      "marrtime.zv.coef", "rcfile")
+.. ..
 
 .. {r marr_fixed_agedecades}
 marr_fixed_agedecades <- glm(marit ~ ethnic + gender + agedecades + 
                             I(agedecades^2) + interp_logpercagveg +
-                            SCHLFT_1996 + HLTHFT_1996 + BUSFT_1996 +
-                            MARFT_1996 + EMPFT_1996 + schooling_yrs +
-                            in_school_1996 + month, data=marit_long, 
+                            SCHLFT + HLTHFT + BUSFT +
+                            MARFT + EMPFT + schooling_yrs +
+                            in_school + month, data=marit_long, 
                             family=binomial)
 save(marr_fixed_agedecades, file="models/marr_fixed_agedecades.Rdata")
 summary(marr_fixed_agedecades)
@@ -198,8 +217,8 @@ _______________________________________________________________________________
 .. {r marr_2level}
 (marr_2level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + 
                         interp_logpercagveg + interp_logpercagveg +
-                        SCHLFT_1996 + HLTHFT_1996 + BUSFT_1996 + MARFT_1996 + 
-                        EMPFT_1996 + schooling_yrs + in_school_1996 + month +
+                        SCHLFT + HLTHFT + BUSFT + MARFT + 
+                        EMPFT + schooling_yrs + in_school + month +
                         (1 | originalNBH), data=marit_long, 
                         family=binomial))
 (marr_2level_or <- data.frame(coef=fixef(marr_2level), 
@@ -212,9 +231,9 @@ Mixed-effects model - random intercepts at individual and neighborhood levels
 _______________________________________________________________________________
 .. {r marr_3level}
 (marr_3level <- glmer(marit ~ ethnic + gender + agedecades + I(agedecades^2) + 
-                        interp_logpercagveg + SCHLFT_1996 + HLTHFT_1996 + 
-                        BUSFT_1996 + MARFT_1996 + EMPFT_1996 + schooling_yrs + 
-                        in_school_1996 + month + (1 | respid) +
+                        interp_logpercagveg + SCHLFT + HLTHFT + 
+                        BUSFT + MARFT + EMPFT + schooling_yrs + 
+                        in_school + month + (1 | respid) +
                         (1 | originalNBH), data=marit_long, family=binomial))
 save(marr_3level, file="models/marr_3level.Rdata")
 (marr_3level_or <- data.frame(coef=fixef(marr_3level), 

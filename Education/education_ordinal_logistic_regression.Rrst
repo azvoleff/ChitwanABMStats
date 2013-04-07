@@ -27,7 +27,9 @@ library(foreign)
 library(mlogit)
 library(arm)
 
-theme_update(theme_grey(base_size=11))
+source("../Event_History_Analysis/export_model_to_rcparam.R")
+
+theme_set(theme_grey(base_size=11))
 update_geom_defaults("smooth", aes(size=1))
 update_geom_defaults("line", aes(size=1))
 DPI <- 300
@@ -36,7 +38,7 @@ HEIGHT <- 5.67
 .. ..
 
 .. {r load-data, cache=FALSE}
-lu <- read.xport("/media/truecrypt1/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
+lu <- read.xport("W:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
 land.agveg <- with(lu, rowSums(cbind(BARI1, IKHET1, RKHET1)))
 land.nonagveg <- with(lu, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))
 land.privbldg <- with(lu, rowSums(cbind(HHRESID1, MILL1, OTRBLD1)))
@@ -51,7 +53,7 @@ percagveg <- with(lu.processed, data.frame(neighid=NEIGHID, percagveg=(land.agve
 percagveg$log_percagveg <- log(percagveg$percagveg + 1)
 
 # Read in the household registry data to get the ethnicities
-load("/media/truecrypt1/Nepal/CVFS_HHReg/hhreg126.Rdata")
+load("W:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 columns <- grep('^(respid|ethnic)$', names(hhreg))
 hhreg <- hhreg[columns]
 hhreg$ethnic <- factor(hhreg$ethnic, levels=c(1,2,3,4,5,6), labels=c("UpHindu",
@@ -62,7 +64,7 @@ hhreg$ethnic <- factor(hhreg$ethnic)
 
 # Read in t1 individual interview data to get years of schooling, age, gender, 
 # etc.
-t1indiv <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
+t1indiv <- read.xport("W:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 # To merge with the hhreg data, need to convert the old format respondent ID 
 # (NNNHHSS) (where NNN is NBH ID, HH is household ID, and SS is subject ID) to 
 # NNNHHHSSS:
@@ -85,12 +87,12 @@ educdata_all_respondents <- educdata
 educdata <- educdata[educdata$age >= 25 &  educdata$age <= 30,]
 
 # Load neighborhood distances data:
-load("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
+load("W:/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
 nbh_recode$NEIGHID <- as.numeric(nbh_recode$NEIGHID)
 educdata <- merge(educdata, nbh_recode, by.x="neighid", by.y="NEIGHID")
 
 # Load neighborhood history data to get minutes on foot to nearest school
-neighhist <- read.xport("/media/truecrypt1/Nepal/ICPSR_0538_Restricted/da04538-0014_REST.xpt")
+neighhist <- read.xport("W:/Nepal/ICPSR_0538_Restricted/da04538-0014_REST.xpt")
 neighhist <- with(neighhist, data.frame(neighid=NEIGHID, schlftmin1996=SCHLFT52))
 
 # Add a categorical years of schooling variable
@@ -158,7 +160,31 @@ lrm_schooling_cat_odds <- cbind(odds_ratio=exp(coef(lrm_schooling_cat)), exp(con
 (lrm_schooling_cat_odds <- round(lrm_schooling_cat_odds, 4))
 AIC(lrm_schooling_cat)
 write.csv(summary(lrm_schooling_cat), file="lrm_schooling_cat.csv")
+
+export_to_model_param(lrm_schooling_cat, "lrm_schooling_cat_rcfile.txt", 
+                      "education.coef", "rcfile")
+export_to_model_param(lrm_schooling_cat, "lrm_schooling_cat_rcparams_default.txt", 
+                      "education.coef", "rcparams.default")
 .. ..
+
+Run another model without the NFO covariate, for comparison.
+.. {r results-lrm-no-nfos}
+educdata_dist <- with(educdata, datadist(gender, ethnic))
+options(datadist='educdata_dist')
+(lrm_schooling_cat_no_nfos <- lrm(schooling_cat ~ gender + ethnic, 
+        data=educdata))
+summary(lrm_schooling_cat_no_nfos)
+lrm_schooling_cat_no_nfos_odds <- cbind(odds_ratio=exp(coef(lrm_schooling_cat_no_nfos)), exp(confint.default(lrm_schooling_cat_no_nfos)))
+(lrm_schooling_cat_no_nfos_odds <- round(lrm_schooling_cat_no_nfos_odds, 4))
+AIC(lrm_schooling_cat_no_nfos)
+write.csv(summary(lrm_schooling_cat_no_nfos), file="lrm_schooling_cat_no_nfos.csv")
+
+export_to_model_param(lrm_schooling_cat_no_nfos, "lrm_schooling_cat_no_nfos_rcfile.txt", 
+                      "education.coef", "rcfile")
+export_to_model_param(lrm_schooling_cat_no_nfos, "lrm_schooling_cat_no_nfos_rcparams_default.txt", 
+                      "education.coef", "rcparams.default")
+.. ..
+
 
 Check the ordinality assumption by plotting mean of education versus mean X:
 
