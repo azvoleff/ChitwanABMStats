@@ -2,7 +2,7 @@ library(foreign)
 library(Hmisc)
 
 # And add percentage and log percentage columns for agricultural vegetation
-nbhhist <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0014_REST.xpt")
+nbhhist <- read.xport("W:/Nepal/ICPSR_0538_Restricted/da04538-0014_REST.xpt")
 
 ID_cols <- grep('^(NEIGHID|STRATA|NX|NY)$', names(nbhhist))
 nbh_recode <- nbhhist[ID_cols]
@@ -35,7 +35,7 @@ nbh_recode <- cbind(nbh_recode, nonfam1996)
 nbh_recode$dist_nara <- (sqrt((nbh_recode$NX - 245848)**2 + (nbh_recode$NY - 3066013)**2)) / 1000
 
 # Load and recode the LULC data
-lulc_orig <- read.xport("V:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
+lulc_orig <- read.xport("W:/Nepal/ICPSR_SupplementalData/Survey_converted/landuse.xpt")
 
 agveg_t1 <- with(lulc_orig, rowSums(cbind(BARI1, IKHET1, RKHET1)))
 nonagveg_t1 <- with(lulc_orig, rowSums(cbind(GRASSC1, GRASSP1, PLANTC1, PLANTP1)))

@@ -6,6 +6,8 @@ library(Hmisc) # contains label function
 library(ggplot2) # contains label function
 library(foreign)
 
+theme_set(theme_grey(base_size=16))
+
 t1indiv <- read.xport("V:/Nepal/ICPSR_0538_Restricted/da04538-0012_REST.xpt")
 t1indiv$GENDER <- factor(t1indiv$GENDER, labels=c("male", "female"))
 

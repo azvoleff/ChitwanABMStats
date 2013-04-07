@@ -156,10 +156,10 @@ summary(marr_fixed)
 (marr_fixed_or <- data.frame(coef=coef(marr_fixed), 
                               OR=round(exp(coef(marr_fixed)), 4)))
 write.csv(marr_fixed_or, file="models/marr_fixed_odds.csv")
-export_to_model_param(marr_fixed, "models/marr_fixed_rcparam.txt", 
+export_to_model_param(marr_fixed, "models/marr_fixed_rcparam_default.txt", 
                       "marrtime.zv.coef")
-export_to_model_param(marr_fixed, "models/marr_fixed_rcparams_default.txt", 
-                      "marrtime.zv.coef", "rcparams.default")
+export_to_model_param(marr_fixed, "models/marr_fixed_rcparams.txt", 
+                      "marrtime.zv.coef", "rcfile")
 .. ..
 
 Now, for comparison, run the model again, but without the LULC covariate.
@@ -174,8 +174,8 @@ summary(marr_fixed_nolulc)
                               OR=round(exp(coef(marr_fixed_nolulc)), 4)))
 write.csv(marr_fixed_nolulc_or, file="models/marr_fixed_nolulc_odds.csv")
 export_to_model_param(marr_fixed_nolulc, 
-                      "models/marr_fixed_nolulc_rcparam.txt", 
-                      "marrtime.zv.coef")
+                      "models/marr_fixed_nolulc_rcparams.txt", 
+                      "marrtime.zv.coef", "rcfile")
 .. ..
 
 

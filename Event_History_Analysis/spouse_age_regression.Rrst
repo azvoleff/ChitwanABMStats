@@ -34,7 +34,7 @@ library(ggplot2)
 library(mlogit)
 library(arm)
 library(rms) # Note 'Design' package was renamed to "rms"
-theme_update(theme_bw(base_size=10))
+theme_set(theme_bw(base_size=10))
 .. ..
 
 .. {r load-data, results='hide'}
@@ -111,6 +111,21 @@ qplot(sp_age_diff_cat, facets=CENGENDR~., geom="histogram", xlab="Gender",
         ylab="Spouse age difference in years (self - spouse)", 
         data=hhrel[hhrel$HASSPOUSE1,])
 .. ..
+
+.. {r mean-sp-age-diff-versus-age-men-only}
+theme_set(theme_grey(base_size=16))
+hhrel_subset <- hhrel[hhrel$CENGENDR == "male", ]
+hhrel_subset <- hhrel_subset[!is.na(hhrel_subset$sp_age_diff_cat), ]
+levels(hhrel_subset$sp_age_diff_cat)[1] <- '<-15'
+levels(hhrel_subset$sp_age_diff_cat)[length(levels(hhrel_subset$sp_age_diff_cat))] <- '>15'
+qplot(sp_age_diff_cat, geom="histogram", xlab="Age difference in years (husband - wife)",
+        ylab="Number of husbands", 
+        data=hhrel_subset)
+ggsave("spouse_age_diff_hist.png", width=8.33, height=5.53, dpi=300)
+
+theme_set(theme_bw(base_size=10))
+.. ..
+
 
 Probability distribution for men marrying women of varying age differences
 ===============================================================================

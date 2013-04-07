@@ -183,26 +183,28 @@ save(first_preg_fixed, file="models/first_preg_fixed.Rdata")
 summary(first_preg_fixed)
 (first_preg_fixed_results <- cbind(coef=coef(first_preg_fixed),  
                                     OR=exp(coef(first_preg_fixed))))
+(first_preg_fixed_results_OR <- exp(cbind(OR=coef(first_preg_fixed),  
+                                          confint(first_preg_fixed))))
 write.csv(first_preg_fixed_results, file="models/first_preg_fixed_odds.csv", row.names=FALSE)
 export_to_model_param(first_preg_fixed, 
-                      "models/first_preg_fixed_rcparam.txt", 
-                      "firstbirth.zv.coef")
-export_to_model_param(first_preg_fixed, 
                       "models/first_preg_fixed_rcparams_default.txt", 
-                      "firstbirth.zv.coef", "rcparams.default")
+                      "firstbirth.zv.coef")
+export_to_model_param(first_preg_fixed, "models/first_preg_fixed_rcparams.txt", 
+                      "firstbirth.zv.coef", "rcfile")
 .. ..
 
 Now run again without the LULC covariate for comparison.
 .. {r first_preg_fixed_no_LULC_ageyears}
-first_preg_fixed_no_LULC <- glm(model_formula, data=first_preg_long, family=binomial)
+first_preg_fixed_no_LULC <- glm(gsub('percagveg_t1 \\+\\n', '', model_formula), 
+                                data=first_preg_long, family=binomial)
 save(first_preg_fixed_no_LULC, file="models/first_preg_fixed_no_LULC.Rdata")
 summary(first_preg_fixed_no_LULC)
 (first_preg_fixed_no_LULC_results <- cbind(coef=coef(first_preg_fixed_no_LULC),  
                                     OR=exp(coef(first_preg_fixed_no_LULC))))
 write.csv(first_preg_fixed_no_LULC_results, file="models/first_preg_fixed_no_LULC_odds.csv", row.names=FALSE)
 export_to_model_param(first_preg_fixed_no_LULC, 
-                      "models/first_preg_fixed_no_LULC_rcparam.txt", 
-                      "firstbirth.zv.coef")
+                      "models/first_preg_fixed_no_LULC_rcparams.txt", 
+                      "firstbirth.zv.coef", "rcfile")
 .. ..
 
 
