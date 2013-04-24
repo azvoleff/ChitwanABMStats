@@ -3,6 +3,16 @@ library(Hmisc)
 library(ggplot2)
 library(lubridate)
 
+PLOT_WIDTH <- 8.33
+PLOT_HEIGHT <- 5.53
+DPI <- 300
+theme_set(theme_grey(base_size=18))
+update_geom_defaults("line", aes(size=.5))
+default_scale_colour <- function(...) {scale_colour_brewer(palette="Dark2", ...)}
+default_scale_fill <- function(...) {scale_fill_brewer(palette="Dark2", ...)}
+scale_colour_discrete <- default_scale_colour
+scale_fill_discrete <- default_scale_fill
+
 # And add percentage and log percentage columns for agricultural vegetation
 nbhhist <- read.xport("W:/Nepal/ICPSR_0538_Restricted/da04538-0014_REST.xpt")
 
@@ -87,8 +97,8 @@ for (n in 1:length(services)) {
     p <- qplot(YEAR, nfos_long[, data_col], geom='line', colour=NEIGHID, 
                data=nfos_long, ylab='Distance in minutes on foot', xlab='Year')
     p + scale_colour_discrete(guide=FALSE)
-    ggsave(paste('1955-1996_', service, '.png', sep=''), width=8.33, 
-           height=5.53, dpi=300)
+    ggsave(paste('1955-1996_', service, '.png', sep=''), width=PLOT_WIDTH, 
+           height=PLOT_HEIGHT, dpi=DPI)
 
     p <- qplot(YEAR, nfos_long[, data_col], geom='line', colour=NEIGHID, 
                facets=dist_nara_cut~., data=nfos_long, ylab='Distance in minutes on foot', xlab='Year')
@@ -117,6 +127,7 @@ for (n in 1:length(services)) {
            height=5.53, dpi=300)
     setTxtProgressBar(pb, (n)/length(services))
 }
+close(pb)
 
 save(nfos_long, file="nfos_long.Rdata")
 write.csv(nfos_long, file="nfos_long.csv", row.names=FALSE)
