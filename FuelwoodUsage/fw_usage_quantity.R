@@ -8,17 +8,17 @@ library(ggplot2)
 PLOT_WIDTH = 8.33
 PLOT_HEIGHT = 5.53
 DPI=  300
-theme_update(theme_grey(base_size=18))
+theme_set(theme_grey(base_size=18))
 
 # Find conversions from bhari to kg, and from cart and quintal to bhari
-load("R:/Data/Nepal/Fall_2009_Fieldwork/HHWoodUsage/R/hhwu2.Rdata")
+load("R:/Data/Nepal/Fieldwork_2009_Fall/HHWoodUsage/R/hhwu2.Rdata")
 summary(hhwu2$D0.Mass.Bhari)
 summary(hhwu2$D0.Bhari.Cart)
 summary(hhwu2$D0.Cart.Quintal)
 
-load("U:/CVFS_R_format/t3ag.Rdata")
+load("W:/Nepal/CVFS_R_format/t3ag.Rdata")
 # Need months 108-119 from the household registry (January 2006-December 2006)
-load("U:/CVFS_HHReg/hhreg126.Rdata")
+load("W:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 load("C:/Users/azvoleff/Code/R/Chitwan_R_files/Migration/migrations_wideformat_all_LD_migrations-1_months_away.Rdata")
 
 # Calculate mean household size in 2006 (months 108-119).

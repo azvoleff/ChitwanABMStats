@@ -10,11 +10,11 @@ library(lme4)
 PLOT_WIDTH <- 8.33
 PLOT_HEIGHT <- 5.53
 DPI <-  300
-theme_update(theme_grey(base_size=18))
+theme_set(theme_grey(base_size=18))
 
-load("V:/Nepal/CVFS_R_format/t3ag.Rdata")
+load("W:/Nepal/CVFS_R_format/t3ag.Rdata")
 # Need months 108-119 from the household registry (January 2006-December 2006)
-load("V:/Nepal/CVFS_HHReg/hhreg126.Rdata")
+load("W:/Nepal/CVFS_HHReg/hhreg126.Rdata")
 
 # Calculate mean household size in 2006 (months 108-119).
 hhid.cols <- grep('^hhid1[0-1][0-9]$', names(hhreg))
@@ -89,10 +89,10 @@ names(meangender)[names(meangender) == 'x'] <- 'gender'
 
 ###############################################################################
 # Add in forest distances and Narayanghat distances columns
-load("V:/Nepal/ICPSR_0538_Restricted/Recode/CVFS_NBHs_forest_distances_recode.Rdata")
+load("W:/Nepal/ICPSR_0538_Restricted/Recode/CVFS_NBHs_forest_distances_recode.Rdata")
 forest_dist$NEIGHID <- sprintf("%03i", forest_dist$NEIGHID)
 
-load("V:/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
+load("W:/Nepal/ICPSR_0538_Restricted/Recode/recoded_NBH_data.Rdata")
 nbh_data <- merge(forest_dist, nbh_recode)
 columns <- grep('^(NEIGHID|BZ_meters|CNP_meters|closest_type|closest_meters|dist_nara)$', names(nbh_data))
 nbh_data <- nbh_data[columns]
