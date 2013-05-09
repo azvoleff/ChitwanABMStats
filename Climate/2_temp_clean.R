@@ -4,15 +4,9 @@
 ###############################################################################
 
 library(lubridate)
-library(ggplot2)
 library(plyr)
 
-theme_set(theme_grey(base_size=10))
-update_geom_defaults("smooth", aes(size=.25))
-update_geom_defaults("line", aes(size=.25))
-PLOT_WIDTH = 8.5 - 1.25 - 1.5
-PLOT_HEIGHT = 4
-PLOT_DPI = 300
+source('0_shared_code.R')
 
 base_data_folder <-  'G:/Data/Nepal/Climate/Nepal_DHM/Temp/'
 data_subfolders <- c('0706', '0902', '0927')

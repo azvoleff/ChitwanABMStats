@@ -1,19 +1,11 @@
 ###############################################################################
-# Reads in the Devghat gauge discharge data, and makes some preliminary plots.
+# Reads in the Devghat gauge discharge data, and cleans it.
 ###############################################################################
 
 library(lubridate)
-library(ggplot2)
 library(plyr)
 
-source('0_utility_functions.R')
-
-theme_set(theme_grey(base_size=30))
-update_geom_defaults("smooth", aes(size=1))
-update_geom_defaults("line", aes(size=1))
-PLOT_WIDTH = (8.5 - 1.25 - 1.5) / 2
-PLOT_HEIGHT = 7 / 3
-PLOT_DPI = 300
+source('0_shared_code.R')
 
 data_folder <-  'G:/Data/Nepal/Climate/Nepal_DHM/Hydro/450'
 start_date <- as.Date('1963/01/01')

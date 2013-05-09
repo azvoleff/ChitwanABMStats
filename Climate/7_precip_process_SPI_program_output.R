@@ -1,7 +1,7 @@
 library(ggplot2)
 library(plyr)
 
-source('0_utility_functions.R')
+source('0_shared_code.R')
 
 rampur_SPI <- read.table('precip_monthly_rampur_SPI.dat', header=FALSE, skip=1, 
                          na.strings='-99.00')
