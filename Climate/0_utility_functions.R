@@ -1,3 +1,22 @@
+library(ggplot2)
+
+theme_set(theme_grey(base_size=30))
+update_geom_defaults("smooth", aes(size=1))
+update_geom_defaults("line", aes(size=1))
+# The four below margins are the page margins in inches - by default figures 
+# will be sized up to half the column width and 1/3 the page height )minus the 
+# caption_space) at 300 DPI.
+right_mar = 1.25
+left_mar = 1.5
+up_mar = 1.25
+low_mar = 1.25
+# How much space to leave for a caption (in inches) on a full page 2 col x 3 
+# row multiplot?
+caption_space <- 1
+PLOT_WIDTH = (8.5 - left_mar - right_mar) / 2
+PLOT_HEIGHT = (11 - up_mar - low_mar - caption_space) / 3
+PLOT_DPI = 300
+
 format_p <- function(p_val) {
     if (p_val < .001) {
         return('<.001')
