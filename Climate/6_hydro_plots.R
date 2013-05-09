@@ -2,6 +2,7 @@ library(lubridate)
 library(ggplot2)
 library(gridExtra)
 library(plyr)
+library(hydroTSM) # for 'fdc'
 
 source('0_utility_functions.R')
 
@@ -30,6 +31,9 @@ ggplot(gt_90, aes(Year, num_days)) +
     geom_smooth(method="lm", se=TRUE, color="black") +
     geom_text(aes(x=1965, y=60, label=labeldata), parse=TRUE, clour='black', 
               hjust=0, size=8)
+png('', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print()
+dev.off()
 
 gt_95 <- ddply(discharge, .(Year), summarize,
                num_days=sum(discharge > percentiles['95%'], na.rm=TRUE))
@@ -40,6 +44,9 @@ ggplot(gt_95, aes(Year, num_days)) +
     geom_smooth(method="lm", se=TRUE, color="black") +
     geom_text(aes(x=1965, y=40, label=labeldata), parse=TRUE, clour='black', 
               hjust=0, size=8)
+png('', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print()
+dev.off()
 
 gt_99 <- ddply(discharge, .(Year), summarize,
                num_days=sum(discharge > percentiles['99%'], na.rm=TRUE))
@@ -50,6 +57,9 @@ ggplot(gt_99, aes(Year, num_days)) +
     geom_smooth(method="lm", se=TRUE, color="black") +
     geom_text(aes(x=1965, y=14, label=labeldata), parse=TRUE, clour='black', 
               hjust=0, size=8)
+png('', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print()
+dev.off()
 
 ###############################################################################
 # Annual discharge
@@ -61,6 +71,53 @@ ggplot(ann, aes(Year, total)) +
     geom_smooth(method="lm", se=TRUE, color="black") +
     geom_text(aes(x=1968, y=695000, label=labeldata), parse=TRUE, clour='black', 
               hjust=0, size=8)
+png('', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print()
+dev.off()
+
+###############################################################################
+# Flow discharge curve
+res <- fdc(discharge$discharge)
+
+
+###############################################################################
+# Mmax,i and Mmin,i
+#
+# From:
+#   Diadovski, Ivan K. “Risk Assessment of Extreme Events Along a River Flow.” 
+#   Journal of Water Resource and Protection 02, no. 05 (2010): 455–461.  
+#   doi:10.4236/jwarp.2010.25052.
+qextrema <- ddply(discharge, .(Year), summarize,
+                 qmin=min(discharge, na.rm=TRUE),
+                 qmax=max(discharge, na.rm=TRUE))
+qmin_mean <- mean(qextrema$qmin)
+qextrema$qmin_anom <- qextrema$qmin - qmin_mean
+qextrema$mmin <- qextrema$qmin / qmin_mean
+qmax_mean <- mean(qextrema$qmax)
+qextrema$qmax_anom <- qextrema$qmax - qmax_mean
+qextrema$mmax <- qextrema$qmax / qmax_mean
+
+labeldata <- eqnfunc_slope(qextrema, 'mmin ~ order(Year)')
+ggplot(qextrema, aes(Year, mmin)) +
+    geom_line() + xlab('Year') +
+    ylab(expression(paste('M'[min], sep=''))) +
+    geom_smooth(method="lm", se=TRUE, color="black") + ylim(c(.5, 1.75)) +
+    geom_text(aes(x=1965, y=1.5, label=labeldata), parse=TRUE, clour='black', 
+              hjust=0, size=8)
+png('', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print()
+dev.off()
+
+labeldata <- eqnfunc_slope(qextrema, 'mmax ~ order(Year)')
+ggplot(qextrema, aes(Year, mmax)) +
+    geom_line() + xlab('Year') +
+    ylab(expression(paste('M'[max], sep=''))) +
+    geom_smooth(method="lm", se=TRUE, color="black") + ylim(c(.5, 1.75)) +
+    geom_text(aes(x=1980, y=1.5, label=labeldata), parse=TRUE, clour='black', 
+              hjust=0, size=8)
+png('', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print()
+dev.off()
 
 ###############################################################################
 # Save multiplot
