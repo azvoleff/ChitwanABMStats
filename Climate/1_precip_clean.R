@@ -8,7 +8,7 @@ library(ggplot2)
 
 source('0_utility_functions.R')
 
-base_data_folder <-  'G:/Data/Nepal/Climate/Nepal_DHM/Precip/'
+base_data_folder <-  'R:/Data/Nepal/Climate/Nepal_DHM/Precip/'
 data_subfolders <- c('0704', '0706', '0902', '0903', '0920', '0925', '0927')
 
 raw_precip <- c()
@@ -52,7 +52,7 @@ precip$precip[precip$raw_precip == 'T'] <- 0
 precip$precip[precip$raw_precip == 'DNA'] <- NA
 precip$Year <- year(precip$Date)
 precip$Month <- month(precip$Date)
-precip$day <- day(precip$Date)
+precip$Day <- day(precip$Date)
 
 precip$Julian_Day <- as.numeric(format(precip$Date, "%j"))
 # Assign pentads for consistency with CMAP: "The pentad dataset consists of 73 

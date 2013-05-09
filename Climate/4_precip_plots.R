@@ -8,8 +8,18 @@ source('0_utility_functions.R')
 theme_set(theme_grey(base_size=30))
 update_geom_defaults("smooth", aes(size=1))
 update_geom_defaults("line", aes(size=1))
-PLOT_WIDTH = (8.5 - 1.25 - 1.5) / 2
-PLOT_HEIGHT = 7 / 3
+# The four below margins are the page margins in inches - by default figures 
+# will be sized up to half the column width and 1/3 the page height )minus the 
+# caption_space) at 300 DPI.
+right_mar = 1.25
+left_mar = 1.5
+up_mar = 1.25
+low_mar = 1.25
+# How much space to leave for a caption (in inches) on a full page 2 col x 3 
+# row multiplot?
+caption_space <- 1
+PLOT_WIDTH = (8.5 - left_mar - right_mar) / 2
+PLOT_HEIGHT = (11 - up_mar - low_mar - caption_space) / 3
 PLOT_DPI = 300
 
 stdErr <- function(x) {sd(x, na.rm=TRUE)/ sqrt(length(x[!is.na(x)]))}
@@ -41,12 +51,29 @@ labeldata <- ddply(ann, .(Station), eqnfunc_slope, 'annual_total ~ order(Year)')
 labeldata$eqn <- gsub('order[(]Year[)]', 'Year', labeldata$eqn)
 labeldata$eqn <- gsub('annual_total', 'Total', labeldata$eqn)
 ann_plot <- ggplot(ann, aes(Year, annual_total)) + facet_grid(Station ~ .) +
-    geom_line() + xlab('Year') + ylab('Precipitation (mm/year)') +
+    geom_line() + xlab('Year') + ylab('Precip. (mm/year)') +
     geom_smooth(method="lm", se=TRUE) + 
     geom_text(data=labeldata, aes(x=1970, y=3000, label=eqn), parse=TRUE, 
               colour='black', hjust=0, size=8)
 png('precip_annual.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(ann_plot)
+dev.off()
+
+###############################################################################
+# 3 year rolling mean annual precip
+filter_years <- 5
+filter_size <- 365*filter_years
+ann_roll_mean <- ddply(precip, .(Station), summarize,
+                      Date=Date, Year=Year, Month=Month, Day=Day,
+                      mean=filter(as.matrix(precip), rep(1/filter_size, filter_size))*365)
+ann_roll_mean_plot <- ggplot(ann_roll_mean, aes(Date, mean)) +
+    facet_grid(Station ~ .) + geom_line() + xlab('Year') +
+    ylab(paste(filter_years, '-year average precip. (mm/year)', sep='')) +
+    geom_rect(aes(xmin=as.Date('1997/02/01'), xmax=as.Date('2006/01/01'), 
+                  ymin=1000, ymax=3000), alpha=.005, color='black') +
+    geom_text(aes(x=as.Date("2001/08/15"), y=1100, label="CVFS"))
+png(paste('precip_annual_', filter_years, 'yr_mean.png', sep=''), width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print(ann_roll_mean_plot)
 dev.off()
 
 ###############################################################################
@@ -194,7 +221,10 @@ monthly_anom <- ddply(monthly_total, .(Station, Year, Month), summarize,
 monthly_anom$Date <- as.Date(paste(monthly_anom$Year, monthly_anom$Month, '15'), format='%Y %m %d')
 monthly_anom_plot <- ggplot(monthly_anom, aes(Date, anom)) +
     geom_line() + xlab('Year') + facet_grid(Station ~ .) +
-    ylab('Precip. anomaly (mm/month)')
+    ylab('Precip. anomaly (mm/month)') +
+    geom_rect(aes(xmin=as.Date('1997/02/01'), xmax=as.Date('2006/01/01'), 
+                  ymin=-500, ymax=750), alpha=.005, color='black') +
+    geom_text(aes(x=as.Date("2001/08/15"), y=-425, label="CVFS"))
 png('precip_monthly_anom.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(monthly_anom_plot)
 dev.off()
@@ -216,7 +246,7 @@ check_neighbors <- function(x, num_neighbors, preceding=FALSE) {
     for (n in 1:length(lags)) {
         this_lag <- lags[n]
         if (preceding) {
-            lagged[, n] <- c(rep(NA, this_lag), x[1:(length(x)-this_lag)])
+            lagged[, n] <- c(rep(NA, this_lag), x[1:(length(x) - this_lag)])
         } else {
             lagged[, n] <- c(x[(1 + this_lag):length(x)], rep(NA, this_lag))
         }
@@ -224,21 +254,21 @@ check_neighbors <- function(x, num_neighbors, preceding=FALSE) {
     return(lagged)
 }
 
+pentad_sum <- ddply(precip, .(Station, Year, Pentad), summarize,
+                    sum=sum(precip))
+
 thresh <- 3
 low_thresh <- thresh - .5
 up_thresh <- thresh + .5
 num_neigh <- 6
 num_meet <- 4
-
-pentad_sum <- ddply(precip, .(Station, Year, Pentad), summarize,
-                    sum=sum(precip))
-
 onset <- ddply(pentad_sum, .(Station), summarize,
                Year=Year, Pentad=Pentad, sum=sum, sum_gt_thresh=sum > thresh,
                preced_lt_low_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh, preceding=TRUE) < low_thresh) >= num_meet),
                subseq_gt_up_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh) > up_thresh) >= num_meet))
 onset$onset <- onset$sum_gt_thresh & onset$preced_lt_low_thresh & onset$subseq_gt_up_thresh
 onset_date <- ddply(onset, .(Station, Year), summarize, onset_pentad=match(TRUE, onset))
+(no_onset_years <- onset_date[is.na(onset_date$onset_pentad),])
 table(is.na(onset_date$onset_pentad))
 labeldata <- ddply(onset_date, .(Station), eqnfunc_slope, 'onset_pentad ~ order(Year)')
 onset_date_plot <- ggplot(onset_date, aes(Year, onset_pentad)) +
@@ -246,7 +276,9 @@ onset_date_plot <- ggplot(onset_date, aes(Year, onset_pentad)) +
     ylab('Monsoon onset pentad') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=1970, y=35, label=eqn), parse=TRUE, 
-              colour='black', hjust=0, size=8)
+              colour='black', hjust=0, size=8) +
+    geom_segment(data=no_onset_years, aes(x=Year, y=0, xend=Year, yend=40), 
+                 alpha=.3, color='black', size=1)
 png('precip_monsoon_onset_date.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(onset_date_plot)
 dev.off()
@@ -256,6 +288,9 @@ end <- ddply(pentad_sum, .(Station), summarize,
              preced_gt_up_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh, preceding=TRUE) > up_thresh) >= num_meet),
              subseq_lt_low_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh) < low_thresh) >= num_meet))
 end$end <- end$sum_lt_thresh & end$preced_gt_up_thresh & end$subseq_lt_low_thresh
+# Set end dates before the 40th pentad to NA
+end$end[end$end & end$Pentad < 40] <- NA
+(no_end_years <- end_date[is.na(end_date$end_pentad),])
 end_date <- ddply(end, .(Station, Year), summarize, end_pentad=match(TRUE, end))
 table(is.na(end_date$end_pentad))
 labeldata <- ddply(end_date, .(Station), eqnfunc_slope, 'end_pentad ~ order(Year)')
@@ -311,7 +346,7 @@ dev.off()
 ###############################################################################
 # Save multi_plot
 grid_cols <- 2
-grid_rows <- 2
+grid_rows <- 3
 png('precip_multiplot.png', width=PLOT_WIDTH*PLOT_DPI*grid_cols, 
     height=PLOT_HEIGHT*PLOT_DPI*grid_rows)
 grid.arrange(ann_plot, pct_95_plot, monthly_anom_plot, EP_frac_plot, 
