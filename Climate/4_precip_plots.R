@@ -3,7 +3,7 @@ library(ggplot2)
 library(gridExtra)
 library(plyr)
 
-source('0_shared_code.R')
+source('0_utility_functions.R')
 
 stdErr <- function(x) {sd(x, na.rm=TRUE)/ sqrt(length(x[!is.na(x)]))}
 
@@ -333,5 +333,5 @@ grid_rows <- 3
 png('precip_multiplot.png', width=PLOT_WIDTH*PLOT_DPI*grid_cols, 
     height=PLOT_HEIGHT*PLOT_DPI*grid_rows)
 grid.arrange(ann_plot, pct_95_plot, monthly_anom_plot, EP_frac_plot, 
-             rainy_days_plot, max_5_day_plot, ncol=2)
+             rainy_days_plot, max_5_day_plot, ncol=grid_rows)
 dev.off()

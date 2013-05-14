@@ -1,6 +1,6 @@
 library(ggplot2)
 
-theme_set(theme_grey(base_size=30))
+theme_set(theme_grey(base_size=40))
 update_geom_defaults("smooth", aes(size=1))
 update_geom_defaults("line", aes(size=1))
 # The four below margins are the page margins in inches - by default figures 
