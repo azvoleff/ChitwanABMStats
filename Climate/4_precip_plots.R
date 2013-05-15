@@ -21,20 +21,15 @@ precip$Period <- cut(precip$Year, c(1980, 1995, 2010), dig.lab=4)
 
 ###############################################################################
 # Annual precip
-ann_missings <- aggregate(is.na(precip$precip),
-                          by=list(Year=precip$Year, Station=precip$Station), sum, 
-                          na.rm=TRUE)
-names(ann_missings)[names(ann_missings) == 'x'] <- 'missings'
-ann <- aggregate(precip$precip,
-                 by=list(Year=precip$Year, Station=precip$Station), sum, 
-                 na.rm=TRUE)
-names(ann)[names(ann) == 'x'] <- 'annual_total'
-ann$annual_total[ann_missings$missing > 10] <- NA
+ann_missings <- ddply(precip, .(Station, Year), summarize, num_nas=sum(is.na(precip)))
+ann <- ddply(precip, .(Station, Year), summarize,
+             annual_total=sum(precip, na.rm=TRUE))
+ann$annual_total[ann_missings$num_nas > 10] <- NA
 labeldata <- ddply(ann, .(Station), eqnfunc_slope, 'annual_total ~ order(Year)')
 labeldata$eqn <- gsub('order[(]Year[)]', 'Year', labeldata$eqn)
 labeldata$eqn <- gsub('annual_total', 'Total', labeldata$eqn)
 ann_plot <- ggplot(ann, aes(Year, annual_total)) + facet_grid(Station ~ .) +
-    geom_line() + xlab('Year') + ylab('Precip. (mm/year)') +
+    geom_line() + xlab('Date') + ylab('Precip. (mm/year)') +
     geom_smooth(method="lm", se=TRUE) + 
     geom_text(data=labeldata, aes(x=1970, y=3000, label=eqn), parse=TRUE, 
               colour='black', hjust=0, size=8)
@@ -50,7 +45,7 @@ ann_roll_mean <- ddply(precip, .(Station), summarize,
                       Date=Date, Year=Year, Month=Month, Day=Day,
                       mean=filter(as.matrix(precip), rep(1/filter_size, filter_size))*365)
 ann_roll_mean_plot <- ggplot(ann_roll_mean, aes(Date, mean)) +
-    facet_grid(Station ~ .) + geom_line() + xlab('Year') +
+    facet_grid(Station ~ .) + geom_line() + xlab('Date') +
     ylab(paste(filter_years, '-year average precip. (mm/year)', sep='')) +
     geom_rect(aes(xmin=as.Date('1997/02/01'), xmax=as.Date('2006/01/01'), 
                   ymin=1000, ymax=3000), alpha=.005, color='black') +
@@ -61,15 +56,14 @@ dev.off()
 
 ###############################################################################
 # 95th percentiles
-gt_95 <- aggregate(precip$gt_pct_95,
-                   by=list(Year=precip$Year, Station=precip$Station),
-                   sum)
-names(gt_95)[names(gt_95) == 'x'] <- 'num_days'
+gt_95 <- ddply(precip, .(Station, Year), summarize, num_days=sum(precip_gt_95, na.rm=TRUE))
+ann_missings <- ddply(precip, .(Station, Year), summarize, num_nas=sum(is.na(precip)))
+gt_95$num_days[ann_missings$num_nas > 10] <- NA
 labeldata <- ddply(gt_95, .(Station), eqnfunc_slope, 'num_days ~ order(Year)')
 labeldata$eqn <- gsub('order[(]Year[)]', 'Year', labeldata$eqn)
 labeldata$eqn <- gsub('num_days', 'Num. Days', labeldata$eqn)
 pct_95_plot <- ggplot(gt_95, aes(Year, num_days)) +
-    geom_line() + xlab('Year') + facet_grid(Station ~ .) +
+    geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Days above 95th pct.') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=1970, y=13, label=eqn), parse=TRUE, 
@@ -90,7 +84,7 @@ labeldata <- ddply(pentad_max, .(Station), eqnfunc_slope, 'pentad_max ~ order(Ye
 labeldata$eqn <- gsub('order[(]Year[)]', 'Year', labeldata$eqn)
 labeldata$eqn <- gsub('pentad_max', 'Max', labeldata$eqn)
 max_5_day_plot <- ggplot(pentad_max, aes(Year, pentad_max)) +
-    geom_line() + xlab('Year') + facet_grid(Station ~ .) +
+    geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Max. 5 day precip. (mm/day)') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=1970, y=500, label=eqn), parse=TRUE, 
@@ -134,13 +128,13 @@ dev.off()
 ###############################################################################
 # Proportion of annual cumulate due to extreme events (q0.95)
 precip_annual_EP_frac <- ddply(precip, .(Station, Year), summarize, 
-                               EP_frac=(sum(precip[gt_pct_95], na.rm=TRUE) / 
+                               EP_frac=(sum(precip[precip_gt_95], na.rm=TRUE) / 
                                         sum(precip)))
 labeldata <- ddply(precip_annual_EP_frac, .(Station), eqnfunc_slope, 'EP_frac ~ order(Year)')
 labeldata$eqn <- gsub('order[(]Year[)]', 'Year', labeldata$eqn)
 labeldata$eqn <- gsub('EP_frac', 'Fraction', labeldata$eqn)
 EP_frac_plot <- ggplot(precip_annual_EP_frac, aes(Year, EP_frac)) +
-    geom_line() + xlab('Year') + facet_grid(Station ~ .) +
+    geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Fraction precip. from extreme events') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=1970, y=.5, label=eqn), parse=TRUE, 
@@ -161,7 +155,7 @@ labeldata$eqn <- gsub('rainy_days', 'Num. Days', labeldata$eqn)
 labeldata$x_pos <- 1970
 labeldata$y_pos <- c(90, 140, 140)
 rainy_days_plot <- ggplot(num_rainy_days, aes(Year, rainy_days)) +
-    geom_line() + xlab('Year') + facet_grid(Station ~ .) +
+    geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Rainy days') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=x_pos, y=y_pos, label=eqn), parse=TRUE, 
@@ -203,11 +197,11 @@ monthly_anom <- ddply(monthly_total, .(Station, Year, Month), summarize,
                       monthly_mean_clim$mean[monthly_mean_clim$Station == Station & monthly_mean_clim$Month == Month]))
 monthly_anom$Date <- as.Date(paste(monthly_anom$Year, monthly_anom$Month, '15'), format='%Y %m %d')
 monthly_anom_plot <- ggplot(monthly_anom, aes(Date, anom)) +
-    geom_line() + xlab('Year') + facet_grid(Station ~ .) +
-    ylab('Precip. anomaly (mm/month)') +
-    geom_rect(aes(xmin=as.Date('1997/02/01'), xmax=as.Date('2006/01/01'), 
-                  ymin=-500, ymax=750), alpha=.005, color='black') +
-    geom_text(aes(x=as.Date("2001/08/15"), y=-425, label="CVFS"))
+    geom_line() + xlab('Date') + facet_grid(Station ~ .) +
+    ylab('Precip. anomaly (mm/month)')
+#    geom_rect(aes(xmin=as.Date('1997/02/01'), xmax=as.Date('2006/01/01'), 
+    #    ymin=-500, ymax=750), alpha=.005, color='black') +
+#    geom_text(aes(x=as.Date("2001/08/15"), y=-425, label="CVFS"))
 png('precip_monthly_anom.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(monthly_anom_plot)
 dev.off()
@@ -255,7 +249,7 @@ onset_date <- ddply(onset, .(Station, Year), summarize, onset_pentad=match(TRUE,
 table(is.na(onset_date$onset_pentad))
 labeldata <- ddply(onset_date, .(Station), eqnfunc_slope, 'onset_pentad ~ order(Year)')
 onset_date_plot <- ggplot(onset_date, aes(Year, onset_pentad)) +
-    geom_line() + xlab('Year') + facet_grid(Station ~ .) +
+    geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Monsoon onset pentad') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=1970, y=35, label=eqn), parse=TRUE, 
@@ -273,16 +267,16 @@ end <- ddply(pentad_sum, .(Station), summarize,
 end$end <- end$sum_lt_thresh & end$preced_gt_up_thresh & end$subseq_lt_low_thresh
 # Set end dates before the 40th pentad to NA
 end$end[end$end & end$Pentad < 40] <- NA
-(no_end_years <- end_date[is.na(end_date$end_pentad),])
 end_date <- ddply(end, .(Station, Year), summarize, end_pentad=match(TRUE, end))
+(no_end_years <- end_date[is.na(end_date$end_pentad),])
 table(is.na(end_date$end_pentad))
 labeldata <- ddply(end_date, .(Station), eqnfunc_slope, 'end_pentad ~ order(Year)')
 end_date_plot <- ggplot(end_date, aes(Year, end_pentad)) +
-    geom_line() + xlab('Year') + facet_grid(Station ~ .) +
+    geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Monsoon end pentad') + 
     geom_smooth(method="lm", se=TRUE) +
-    geom_text(data=labeldata, aes(x=1970, y=35, label=eqn), parse=TRUE, 
-              colour='black', hjust=0, size=8)
+    geom_text(data=labeldata, aes(x=1970, y=50, label=eqn), parse=TRUE, 
+              colour='black', hjust=0, size=8) + ylim(c(48, 62))
 png('precip_monsoon_end_date.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(end_date_plot)
 dev.off()
@@ -298,7 +292,7 @@ stn_mean_onset_date <- ddply(stn_mean_onset, .(Year), summarize, onset_pentad=ma
 table(is.na(stn_mean_onset_date$onset_pentad))
 labeldata <- eqnfunc_slope(stn_mean_onset_date, 'onset_pentad ~ order(Year)')
 stn_mean_onset_date_plot <- ggplot(stn_mean_onset_date, aes(Year, onset_pentad)) +
-    geom_line() + xlab('Year') +
+    geom_line() + xlab('Date') +
     ylab('Monsoon onset pentad') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(aes(x=1970, y=35, label=labeldata), parse=TRUE, 
@@ -317,21 +311,27 @@ stn_mean_end_date <- ddply(stn_mean_end, .(Year), summarize, end_pentad=match(TR
 table(is.na(stn_mean_end_date$end_pentad))
 labeldata <- eqnfunc_slope(stn_mean_end_date, 'end_pentad ~ order(Year)')
 stn_mean_end_date_plot <- ggplot(stn_mean_end_date, aes(Year, end_pentad)) +
-    geom_line() + xlab('Year') +
+    geom_line() + xlab('Date') +
     ylab('Monsoon end pentad') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(aes(x=1992, y=59, label=labeldata), parse=TRUE, 
               colour='black', hjust=0, size=8)
-png('precip_monsoon_end_date_station_mean.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+png('precip_monsoon_end_date_station_mean.png', width=PLOT_WIDTH*PLOT_DPI, 
+    height=PLOT_HEIGHT*PLOT_DPI)
 print(stn_mean_end_date_plot)
 dev.off()
 
 ###############################################################################
-# Save multi_plot
+# Save multi_plots
 grid_cols <- 2
-grid_rows <- 3
-png('precip_multiplot.png', width=PLOT_WIDTH*PLOT_DPI*grid_cols, 
+grid_rows <- 1
+
+png('precip_extrema_plot.png', width=PLOT_WIDTH*PLOT_DPI*grid_cols, 
     height=PLOT_HEIGHT*PLOT_DPI*grid_rows)
-grid.arrange(ann_plot, pct_95_plot, monthly_anom_plot, EP_frac_plot, 
-             rainy_days_plot, max_5_day_plot, ncol=grid_rows)
+grid.arrange(rainy_days_plot, pct_95_plot, ncol=grid_cols)
+dev.off()
+
+png('precip_monsoon_onset_end.png', width=PLOT_WIDTH*PLOT_DPI*grid_cols, 
+    height=PLOT_HEIGHT*PLOT_DPI*grid_rows)
+grid.arrange(onset_date_plot, end_date_plot, ncol=grid_cols)
 dev.off()

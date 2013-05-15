@@ -5,10 +5,11 @@
 
 library(lubridate)
 library(ggplot2)
+library(plyr)
 
-source('0_shared_code.R')
+source('0_utility_functions.R')
 
-base_data_folder <-  'R:/Data/Nepal/Climate/Nepal_DHM/Precip/'
+base_data_folder <-  'G:/Data/Nepal/Climate/Nepal_DHM/Precip/'
 data_subfolders <- c('0704', '0706', '0902', '0903', '0920', '0925', '0927')
 
 raw_precip <- c()
@@ -85,25 +86,11 @@ for (n in 1:nrow(ann_missings_gt_10)) {
                   == ann_missings_gt_10$Year[n]] <- NA
 }
 
-# First calculate separate percentiles for each station
-percentile_probs <- c(90, 95, 99)
-percentiles <- with(precip[precip$precip > 0, ],
-                    aggregate(precip, by=list(Station=Station), quantile, 
-                              prob=percentile_probs/100, na.rm=T))
-percentiles <- cbind(percentiles[1], matrix(unlist(percentiles[2]), 
-                                            ncol=length(percentile_probs)))
-names(percentiles) <- c('Station', paste('pct', percentile_probs, sep='_'))
-percentiles
-# Now make indicator variables indicating if each particular day was or was not 
-# above each percentile
-percentile_cols <- grep('^pct_', names(percentiles))
-for (percentile_col in percentile_cols) {
-    precip$new_gt_col <- precip$precip > percentiles[match(precip$Station, percentiles$Station), 
-                                                     percentile_col]
-    names(precip)[names(precip) == 'new_gt_col'] <- paste('gt', 
-                                                          names(percentiles[percentile_col]), 
-                                                          sep='_')
-}
+# Add separate percentiles indicators for each station
+precip <- ddply(precip, .(Station), transform, 
+              precip_gt_90=is_extreme(precip, 90, data_subset=(precip > 0)),
+              precip_gt_95=is_extreme(precip, 95, data_subset=(precip > 0)),
+              precip_gt_99=is_extreme(precip, 99, data_subset=(precip > 0)))
 
 save(precip, file='precip_daily_ALL_cleaned.Rdata')
 write.csv(precip, file='precip_daily_ALL_cleaned.csv', row.names=FALSE)

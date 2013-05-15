@@ -1,6 +1,8 @@
 library(ggplot2)
 
 theme_set(theme_grey(base_size=40))
+theme_set(theme_bw(base_size=40))
+#theme_update(panel.grid.major=element_blank(), panel.grid.minor=element_blank())
 update_geom_defaults("smooth", aes(size=1))
 update_geom_defaults("line", aes(size=1))
 # The four below margins are the page margins in inches - by default figures 
@@ -65,4 +67,16 @@ eqnfunc_slope <- function(d, model_formula, two_lines=FALSE) {
         eq <- substitute("slope" == - b*","*~~"p"[slope]==~pslope, l)
     }
     c(eqn=as.character(as.expression(eq)))
+}
+
+###############################################################################
+# Function to calculate if data values exceed (or are lower than) a certain 
+# percentile.
+is_extreme <- function(data_vec, prob, greater=TRUE, data_subset=NULL) {
+    if (is.null(data_subset)) {data_subset<- rep(TRUE, length(data_vec))}
+    if (greater) {
+        return(data_vec > quantile(data_vec[data_subset], prob=prob/100, na.rm=TRUE))
+    } else {
+        return(data_vec < quantile(data_vec[data_subset], prob=prob/100, na.rm=TRUE))
+    }
 }

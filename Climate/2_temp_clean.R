@@ -1,4 +1,5 @@
-###############################################################################
+# for monsoon, winter, and 
+# spring#############################################################################c
 # Reads in and cleans the temperature data for three stations near Western 
 # Chitwan.
 ###############################################################################
@@ -6,7 +7,7 @@
 library(lubridate)
 library(plyr)
 
-source('0_shared_code.R')
+source('0_utility_functions.R')
 
 base_data_folder <-  'G:/Data/Nepal/Climate/Nepal_DHM/Temp/'
 data_subfolders <- c('0706', '0902', '0927')
@@ -116,23 +117,13 @@ for (n in 1:nrow(mint_ann_missings_gt_10)) {
 
 # First calculate separate percentiles for each station for both max and min 
 # temp
-temp_percentiles <- ddply(temp, .(Station), summarize, 
-                          mint_pct_1=quantile(min_temp, prob=1/100, na.rm=TRUE),
-                          mint_pct_5=quantile(min_temp, prob=5/100, na.rm=TRUE),
-                          mint_pct_10=quantile(min_temp, prob=10/100, na.rm=TRUE),
-                          mint_pct_90=quantile(min_temp, prob=90/100, na.rm=TRUE),
-                          mint_pct_95=quantile(min_temp, prob=95/100, na.rm=TRUE),
-                          mint_pct_99=quantile(min_temp, prob=99/100, na.rm=TRUE),
-                          maxt_pct_1=quantile(max_temp, prob=1/100, na.rm=TRUE),
-                          maxt_pct_5=quantile(max_temp, prob=5/100, na.rm=TRUE),
-                          maxt_pct_10=quantile(max_temp, prob=10/100, na.rm=TRUE),
-                          maxt_pct_90=quantile(max_temp, prob=90/100, na.rm=TRUE),
-                          maxt_pct_95=quantile(max_temp, prob=95/100, na.rm=TRUE),
-                          maxt_pct_99=quantile(max_temp, prob=99/100, na.rm=TRUE))
-temp$mint_lt_5 <- temp$min_temp < temp_percentiles[match(temp$Station, temp_percentiles$Station),]$mint_pct_5
-temp$mint_lt_1 <- temp$min_temp < temp_percentiles[match(temp$Station, temp_percentiles$Station),]$mint_pct_1
-temp$maxt_gt_95 <- temp$max_temp > temp_percentiles[match(temp$Station, temp_percentiles$Station),]$maxt_pct_95
-temp$maxt_gt_99 <- temp$max_temp > temp_percentiles[match(temp$Station, temp_percentiles$Station),]$maxt_pct_99
+temp <- ddply(temp, .(Station), transform, 
+              mint_lt_1=is_extreme(min_temp, 1, greater=FALSE),
+              mint_lt_5=is_extreme(min_temp, 5, greater=FALSE),
+              mint_lt_10=is_extreme(min_temp, 10, greater=FALSE),
+              maxt_gt_90=is_extreme(max_temp, 5),
+              maxt_gt_95=is_extreme(max_temp, 95),
+              maxt_gt_99=is_extreme(max_temp, 99))
 
 save(temp, file='temp_daily_ALL_cleaned.Rdata')
 write.csv(temp, file='temp_daily_ALL_cleaned.csv', row.names=FALSE)
