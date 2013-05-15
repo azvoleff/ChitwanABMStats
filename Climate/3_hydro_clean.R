@@ -62,6 +62,8 @@ discharge$Year <- year(discharge$Date)
 discharge$Month <- month(discharge$Date)
 discharge$Day <- day(discharge$Date)
 
+discharge$Station <- factor(discharge$Station)
+
 # Add indicators for monsoon, winter, and spring
 discharge$Season <- NA
 discharge$Season[discharge$Month %in% c(6, 7, 8, 9)] <- 'Monsoon (JJAS)'
