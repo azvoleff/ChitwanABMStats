@@ -55,6 +55,16 @@ precip$Year <- year(precip$Date)
 precip$Month <- month(precip$Date)
 precip$Day <- day(precip$Date)
 
+# Add indicators for monsoon, winter, and spring
+precip$Season <- NA
+precip$Season[precip$Month %in% c(6, 7, 8, 9)] <- 'Monsoon (JJAS)'
+precip$Season[precip$Month %in% c(10, 11, 12, 1)] <- 'Winter (ONDJ)'
+precip$Season[precip$Month %in% c(2, 3, 4, 5)] <- 'Spring (FMAM)'
+precip$Season <- factor(precip$Season, levels=c('Spring (FMAM)', 'Monsoon (JJAS)', 'Winter (ONDJ)'))
+# Add a variable for the starting year of each season (winter starts the year 
+# prior for Jan and Feb months)
+precip$season_start_year <- precip$Year
+
 precip$Julian_Day <- as.numeric(format(precip$Date, "%j"))
 # Assign pentads for consistency with CMAP: "The pentad dataset consists of 73 
 # pentads per year with the 12th pentad covering Feb 25-Mar 1 whether or not 
@@ -80,10 +90,10 @@ names(ann_missings)[names(ann_missings) == 'x'] <- 'missings'
 #ggplot(ann_missings, aes(Year, missings, colour=Station)) +
 #geom_line() + xlab('Year') + ylab('Number of missing days')
 
-ann_missings_gt_10 <- ann_missings[ann_missings$missing > 10, ]
-for (n in 1:nrow(ann_missings_gt_10)) {
-    precip$precip[precip$Station == ann_missings_gt_10$Station[n] & precip$Year 
-                  == ann_missings_gt_10$Year[n]] <- NA
+ann_missings_gt_15 <- ann_missings[ann_missings$missing > 15, ]
+for (n in 1:nrow(ann_missings_gt_15)) {
+    precip$precip[precip$Station == ann_missings_gt_15$Station[n] & precip$Year 
+                  == ann_missings_gt_15$Year[n]] <- NA
 }
 
 # Add separate percentiles indicators for each station

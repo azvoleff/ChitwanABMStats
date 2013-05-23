@@ -181,7 +181,8 @@ monthly_precip_plot <- ggplot(mean_total_precip_monthly, aes(Month, mean_total, 
     ylab('Mean precip. (mm/month)') + 
     geom_ribbon(aes(x=Month, ymin=mean_total_lower_conf, 
                     ymax=mean_total_upper_conf, fill=Period),
-                alpha=.2, data=mean_total_precip_monthly)
+                alpha=.2, data=mean_total_precip_monthly) +
+    theme(legend.position='bottom')
 png('precip_monthly.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(monthly_precip_plot)
 dev.off()
@@ -190,8 +191,10 @@ dev.off()
 # Precip anomalies by month
 monthly_total <- ddply(precip, .(Station, Year, Month), summarize, 
                            total=sum(precip))
-monthly_mean_clim <- ddply(monthly_total, .(Station, Month), summarize, 
-                           mean=mean(total, na.rm=TRUE))
+# Calculate climatology from 1980-2010 data only.
+monthly_mean_clim <- ddply(monthly_total[monthly_total$Year > 1980 & 
+                           monthly_total$Year <= 2010, ], .(Station, Month), 
+                           summarize, mean=mean(total, na.rm=TRUE))
 monthly_anom <- ddply(monthly_total, .(Station, Year, Month), summarize, 
                       anom=(total - 
                       monthly_mean_clim$mean[monthly_mean_clim$Station == Station & monthly_mean_clim$Month == Month]))

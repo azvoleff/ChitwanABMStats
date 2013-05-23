@@ -80,3 +80,21 @@ is_extreme <- function(data_vec, prob, greater=TRUE, data_subset=NULL) {
         return(data_vec < quantile(data_vec[data_subset], prob=prob/100, na.rm=TRUE))
     }
 }
+
+g_legend<-function(a.gplot){
+    tmp <- ggplot_gtable(ggplot_build(a.gplot))
+    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+    legend <- tmp$grobs[[leg]]
+    legend
+}
+
+# Below is from: http://bit.ly/17qgN4u - It allows setting a y scale with 
+# integer breaks rather than decimals
+library("scales")
+integer_breaks <- function(n = 3, ...) {
+  breaker <- pretty_breaks(n, ...)
+  function(x) {
+     breaks <- breaker(x)
+     breaks[breaks == floor(breaks)]
+  }
+}

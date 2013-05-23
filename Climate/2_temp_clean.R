@@ -61,6 +61,17 @@ temp$Year <- year(temp$Date)
 temp$Month <- month(temp$Date)
 temp$day <- day(temp$Date)
 
+# Add indicators for monsoon, winter, and spring
+temp$Season <- NA
+temp$Season[temp$Month %in% c(6, 7, 8, 9)] <- 'Monsoon (JJAS)'
+temp$Season[temp$Month %in% c(10, 11, 12, 1)] <- 'Winter (ONDJ)'
+temp$Season[temp$Month %in% c(2, 3, 4, 5)] <- 'Spring (FMAM)'
+temp$Season <- factor(temp$Season, levels=c('Spring (FMAM)', 'Monsoon (JJAS)', 'Winter (ONDJ)'))
+# Add a variable for the starting year of each season (winter starts the year 
+# prior for Jan and Feb months)
+temp$season_start_year <- temp$Year
+temp$season_start_year[temp$Month == 1] <- temp$Year[temp$Month == 1] - 1
+
 # There are 0s in the dataset for max temp and min_temp - these look like they 
 # should actually be NAs
 temp$min_temp[temp$min_temp == 0] <- NA
@@ -101,15 +112,15 @@ names(mint_ann_missings)[names(mint_ann_missings) == 'x'] <- 'missings'
 ggplot(mint_ann_missings, aes(Year, missings, colour=Station)) +
 geom_line() + xlab('Year') + ylab('Number of missing days (low temperature)')
 
-maxt_ann_missings_gt_10 <- maxt_ann_missings[maxt_ann_missings$missing > 10, ]
-for (n in 1:nrow(maxt_ann_missings_gt_10)) {
-    temp$max_temp[temp$Station == maxt_ann_missings_gt_10$Station[n] & temp$Year 
-                  == maxt_ann_missings_gt_10$Year[n]] <- NA
+maxt_ann_missings_gt_15 <- maxt_ann_missings[maxt_ann_missings$missing > 15, ]
+for (n in 1:nrow(maxt_ann_missings_gt_15)) {
+    temp$max_temp[temp$Station == maxt_ann_missings_gt_15$Station[n] & temp$Year 
+                  == maxt_ann_missings_gt_15$Year[n]] <- NA
 }
-mint_ann_missings_gt_10 <- mint_ann_missings[mint_ann_missings$missing > 10, ]
-for (n in 1:nrow(mint_ann_missings_gt_10)) {
-    temp$min_temp[temp$Station == mint_ann_missings_gt_10$Station[n] & temp$Year 
-                  == mint_ann_missings_gt_10$Year[n]] <- NA
+mint_ann_missings_gt_15 <- mint_ann_missings[mint_ann_missings$missing > 15, ]
+for (n in 1:nrow(mint_ann_missings_gt_15)) {
+    temp$min_temp[temp$Station == mint_ann_missings_gt_15$Station[n] & temp$Year 
+                  == mint_ann_missings_gt_15$Year[n]] <- NA
 }
 
 ###############################################################################
@@ -133,11 +144,11 @@ write.csv(temp, file='temp_daily_ALL_cleaned.csv', row.names=FALSE)
 # TA0927 - Bharatpur, 205m have almost no data.
 # But there is only about 5 years of data, so not too useful.
 temp <- temp[temp$Station %in% c('TA0902'), ]
-temp$Station[temp$Station == 'TA0902'] <- 'Rampur (256m)'
+temp$Station[temp$Station == 'TA0902'] <- 'Rampur'
 #temp$Station[temp$Station == 'TA0927'] <- 'Bharatpur (205m)'
 #temp$Station[temp$Station == 'TA0706'] <- 'Dumkauli (154m)'
 temp$Station <- as.factor(temp$Station)
-temp$Station <- relevel(temp$Station, 'Rampur (256m)')
+temp$Station <- relevel(temp$Station, 'Rampur')
 
 # Also limit analysis to post 1980, since pre 1980 there is only data for 6 
 # years between 1968 and 1980.

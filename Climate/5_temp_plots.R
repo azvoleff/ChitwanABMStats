@@ -23,17 +23,6 @@ stdErr <- function(x) {sd(x, na.rm=TRUE)/ sqrt(length(x[!is.na(x)]))}
 
 load('temp_daily_Chitwan_cleaned.Rdata')
 
-# Add indicators for monsoon, winter, and spring
-temp$Season <- NA
-temp$Season[temp$Month %in% c(6, 7, 8, 9)] <- 'Monsoon (JJAS)'
-temp$Season[temp$Month %in% c(10, 11, 12, 1)] <- 'Winter (ONDJ)'
-temp$Season[temp$Month %in% c(2, 3, 4, 5)] <- 'Spring (FMAM)'
-temp$Season <- factor(temp$Season, levels=c('Spring (FMAM)', 'Monsoon (JJAS)', 'Winter (ONDJ)'))
-# Add a variable for the starting year of each season (winter starts the year 
-# prior for Jan and Feb months)
-temp$season_start_year <- temp$Year
-temp$season_start_year[temp$Month == 1] <- temp$Year[temp$Month == 1] - 1
-
 table(temp$Year, is.na(temp$min_temp))
 
 table(temp$Year, is.na(temp$max_temp))
@@ -138,17 +127,6 @@ dev.off()
 ###############################################################################
 # Faceted seasonal min/max t plots
 
-# Below is from: http://bit.ly/17qgN4u - It allows setting a y scale with 
-# integer breaks rather than decimals
-library("scales")
-integer_breaks <- function(n = 3, ...) {
-  breaker <- pretty_breaks(n, ...)
-  function(x) {
-     breaks <- breaker(x)
-     breaks[breaks == floor(breaks)]
-  }
-}
-
 seasonal_melt <- melt(seasonal_stats, id.vars=c('Season', 'season_start_year'), 
                       measure.vars=c('mean_mint', 'mean_maxt'))
 seasonal_melt$variable <- as.character(seasonal_melt$variable)
@@ -170,17 +148,8 @@ png('temp_seasonal_meltplot.png', width=PLOT_WIDTH*PLOT_DPI*2, height=PLOT_HEIGH
 print(seasonal_melt_plot)
 dev.off()
 
-
 ###############################################################################
 # Multiplots
-
-g_legend<-function(a.gplot){
-    tmp <- ggplot_gtable(ggplot_build(a.gplot))
-    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
-    legend <- tmp$grobs[[leg]]
-    legend
-}
-
 season_legend <- g_legend(seasonal_maxt_plot)
 grid_cols <- 2
 grid_rows <- 1
