@@ -4,7 +4,7 @@ theme_set(theme_grey(base_size=40))
 theme_set(theme_bw(base_size=40))
 #theme_update(panel.grid.major=element_blank(), panel.grid.minor=element_blank())
 update_geom_defaults("smooth", aes(size=1))
-update_geom_defaults("line", aes(size=1))
+update_geom_defaults("line", aes(size=.5))
 # The four below margins are the page margins in inches - by default figures 
 # will be sized up to half the column width and 1/3 the page height )minus the 
 # caption_space) at 300 DPI.

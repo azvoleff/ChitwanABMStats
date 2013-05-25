@@ -49,14 +49,16 @@ for (SPI_length in SPI_lengths) {
 
 
 # Make a meltplot for publication
-SPI_melt <- melt(SPI, id.vars=c('Station', 'Date'), measure.vars=c('SPI_6', 'SPI_24'))
-SPI_melt$variable <- as.character(SPI_melt$variable)
-SPI_melt$variable <- factor(SPI_melt$variable, levels=c('SPI_6', 'SPI_24'),
+SPI_melt <- melt(SPI, id.vars=c('Station', 'Date'),
+                 measure.vars=c('SPI_6', 'SPI_24'))
+SPI_melt$variable <- factor(SPI_melt$variable,
+                            levels=c('SPI_6', 'SPI_24'),
                             labels=c('6-month SPI', '24-month SPI'))
-SPI_melt_plot <- ggplot(SPI_melt, aes(Date, value, colour=variable)) +
+SPI_melt_plot <- ggplot(SPI_melt, aes(Date, value)) +
     geom_line() + xlab('Time') + ylab('SPI') +
-    facet_grid(variable ~ Station, scales='free_y', space='free_y') +
+    facet_grid(variable ~ Station) +
     geom_hline(yintercept=1.5, linetype=2) +
+    geom_hline(yintercept=0, linetype=1) +
     geom_hline(yintercept=-1.5, linetype=2) +
     theme(legend.position='none') +
     theme(axis.title.x=element_text(vjust=-0.5)) +

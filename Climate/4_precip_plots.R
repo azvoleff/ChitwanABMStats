@@ -247,19 +247,25 @@ onset <- ddply(pentad_sum, .(Station), summarize,
                preced_lt_low_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh, preceding=TRUE) < low_thresh) >= num_meet),
                subseq_gt_up_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh) > up_thresh) >= num_meet))
 onset$onset <- onset$sum_gt_thresh & onset$preced_lt_low_thresh & onset$subseq_gt_up_thresh
-onset_date <- ddply(onset, .(Station, Year), summarize, onset_pentad=match(TRUE, onset))
-(no_onset_years <- onset_date[is.na(onset_date$onset_pentad),])
-table(is.na(onset_date$onset_pentad))
-labeldata <- ddply(onset_date, .(Station), eqnfunc_slope, 'onset_pentad ~ order(Year)')
-onset_date_plot <- ggplot(onset_date, aes(Year, onset_pentad)) +
+onset_date <- ddply(onset, .(Station, Year), summarize, pentad=match(TRUE, onset))
+no_onset_years <- onset_date[is.na(onset_date$pentad), ]
+# Don't count years with missing data as years with no onset:
+no_onset_years <- no_onset_years[!(no_onset_years$Station == 'Rampur' &
+                                  (no_onset_years$Year %in% c(1967, 2012))), ]
+(no_onset_years <- no_onset_years[!(no_onset_years$Station == 'Dumkauli' &
+                                   (no_onset_years$Year %in% c(1974, 1978))), ])
+table(is.na(onset_date$pentad))
+labeldata <- ddply(onset_date, .(Station), eqnfunc_slope, 'pentad ~ 
+                   order(Year)')
+onset_date_plot <- ggplot(onset_date, aes(Year, pentad)) +
     geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Monsoon onset pentad') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=1970, y=35, label=eqn), parse=TRUE, 
               colour='black', hjust=0, size=8) +
-    geom_segment(data=no_onset_years, aes(x=Year, y=0, xend=Year, yend=40), 
-                 alpha=.3, color='black', size=1)
-png('precip_monsoon_onset_date.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+    geom_vline(data=no_onset_years, aes(xintercept=Year), alpha=.3, color='black', size=1)
+png('precip_monsoon_onset_date.png', width=PLOT_WIDTH*PLOT_DPI, 
+    height=PLOT_HEIGHT*PLOT_DPI)
 print(onset_date_plot)
 dev.off()
 
@@ -270,31 +276,59 @@ end <- ddply(pentad_sum, .(Station), summarize,
 end$end <- end$sum_lt_thresh & end$preced_gt_up_thresh & end$subseq_lt_low_thresh
 # Set end dates before the 40th pentad to NA
 end$end[end$end & end$Pentad < 40] <- NA
-end_date <- ddply(end, .(Station, Year), summarize, end_pentad=match(TRUE, end))
-(no_end_years <- end_date[is.na(end_date$end_pentad),])
-table(is.na(end_date$end_pentad))
-labeldata <- ddply(end_date, .(Station), eqnfunc_slope, 'end_pentad ~ order(Year)')
-end_date_plot <- ggplot(end_date, aes(Year, end_pentad)) +
+end_date <- ddply(end, .(Station, Year), summarize, pentad=match(TRUE, end))
+no_end_years <- end_date[is.na(end_date$pentad), ]
+# Don't count years with missing data as years with no end:
+no_end_years <- no_end_years[!(no_end_years$Station == 'Rampur' &
+                              (no_end_years$Year %in% c(1967, 2012))), ]
+(no_end_years <- no_end_years[!(no_end_years$Station == 'Dumkauli' &
+                               (no_end_years$Year %in% c(1974, 1978))), ])
+table(is.na(end_date$pentad))
+labeldata <- ddply(end_date, .(Station), eqnfunc_slope, 'pentad ~ order(Year)')
+end_date_plot <- ggplot(end_date, aes(Year, pentad)) +
     geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Monsoon end pentad') + 
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=1970, y=50, label=eqn), parse=TRUE, 
-              colour='black', hjust=0, size=8) + ylim(c(48, 62))
+              colour='black', hjust=0, size=8) + ylim(c(48, 62)) +
+    geom_vline(data=no_end_years, aes(xintercept=Year), alpha=.3, color='black', size=1)
 png('precip_monsoon_end_date.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(end_date_plot)
 dev.off()
 
+###############################################################################
+# Faceted monsoon_date melt plot with onset/end
+end_date$Type <- 'End'
+onset_date$Type <- 'Onset'
+monsoon_date_melt <- rbind(end_date, onset_date)
+monsoon_date_melt$Type <- factor(monsoon_date_melt$Type, levels=c('Onset', 'End'))
+no_end_years$Type <- 'End'
+no_onset_years$Type <- 'Onset'
+no_end_onset_years <- rbind(no_onset_years, no_end_years)
+monsoon_date_melt_plot <- ggplot(monsoon_date_melt, aes(Year, pentad)) +
+    geom_line() + xlab('Time') +
+    facet_grid(Type ~ Station, scales='free_y', space='free_y') +
+    ylab('Pentad') +
+    theme(legend.position='none') +
+    geom_smooth(method="lm", se=TRUE) +
+    geom_vline(data=no_end_onset_years, aes(xintercept=Year), color='black', size=.5)
+png('precip_monsoon_onset_end_meltplot.png', width=PLOT_WIDTH*PLOT_DPI*2, height=PLOT_HEIGHT*PLOT_DPI)
+print(monsoon_date_melt_plot)
+dev.off()
+
 # Try start and end dates on the mean series from the three stations
-stn_mean_onset <- ddply(precip, .(Year, Pentad), summarize,
-                         mean_sum=mean(precip, na.rm=TRUE))
+stn_sums <- ddply(precip, .(Station, Year, Pentad), summarize,
+                  stn_sum=sum(precip, na.rm=TRUE))
+stn_mean_onset <- ddply(stn_sums, .(Year, Pentad), summarize,
+                         mean_sum=mean(stn_sum, na.rm=TRUE))
 stn_mean_onset$sum_gt_thresh <- stn_mean_onset$mean_sum > thresh
 stn_mean_onset$preced_lt_low_thresh <- rowSums(check_neighbors(stn_mean_onset$mean_sum, num_neighbors=num_neigh, preceding=TRUE) < low_thresh) >= num_meet
 stn_mean_onset$subseq_gt_up_thresh <- rowSums(check_neighbors(stn_mean_onset$mean_sum, num_neighbors=num_neigh) > up_thresh) >= num_meet
 stn_mean_onset$onset <- stn_mean_onset$sum_gt_thresh & stn_mean_onset$preced_lt_low_thresh & stn_mean_onset$subseq_gt_up_thresh
-stn_mean_onset_date <- ddply(stn_mean_onset, .(Year), summarize, onset_pentad=match(TRUE, onset))
-table(is.na(stn_mean_onset_date$onset_pentad))
-labeldata <- eqnfunc_slope(stn_mean_onset_date, 'onset_pentad ~ order(Year)')
-stn_mean_onset_date_plot <- ggplot(stn_mean_onset_date, aes(Year, onset_pentad)) +
+stn_mean_onset_date <- ddply(stn_mean_onset, .(Year), summarize, pentad=match(TRUE, onset))
+table(is.na(stn_mean_onset_date$pentad))
+labeldata <- eqnfunc_slope(stn_mean_onset_date, 'pentad ~ order(Year)')
+stn_mean_onset_date_plot <- ggplot(stn_mean_onset_date, aes(Year, pentad)) +
     geom_line() + xlab('Date') +
     ylab('Monsoon onset pentad') + 
     geom_smooth(method="lm", se=TRUE) +
@@ -304,16 +338,18 @@ png('precip_monsoon_onset_date_station_mean.png', width=PLOT_WIDTH*PLOT_DPI, hei
 print(stn_mean_onset_date_plot)
 dev.off()
 
-stn_mean_end <- ddply(precip, .(Year, Pentad), summarize,
-                         mean_sum=mean(precip, na.rm=TRUE))
+stn_mean_end <- ddply(stn_sums, .(Year, Pentad), summarize,
+                         mean_sum=mean(stn_sum, na.rm=TRUE))
 stn_mean_end$sum_lt_thresh <- stn_mean_end$mean_sum < thresh
 stn_mean_end$preced_gt_up_thresh <- rowSums(check_neighbors(stn_mean_end$mean_sum, num_neighbors=num_neigh, preceding=TRUE) > up_thresh) >= num_meet
 stn_mean_end$subseq_lt_low_thresh <- rowSums(check_neighbors(stn_mean_end$mean_sum, num_neighbors=num_neigh) < low_thresh) >= num_meet
 stn_mean_end$end <- stn_mean_end$sum_lt_thresh & stn_mean_end$preced_gt_up_thresh & stn_mean_end$subseq_lt_low_thresh
-stn_mean_end_date <- ddply(stn_mean_end, .(Year), summarize, end_pentad=match(TRUE, end))
-table(is.na(stn_mean_end_date$end_pentad))
-labeldata <- eqnfunc_slope(stn_mean_end_date, 'end_pentad ~ order(Year)')
-stn_mean_end_date_plot <- ggplot(stn_mean_end_date, aes(Year, end_pentad)) +
+stn_mean_end$end[stn_mean_end$end & stn_mean_end$Pentad < 40] <- NA
+end_date <- ddply(end, .(Station, Year), summarize, pentad=match(TRUE, end))
+stn_mean_end_date <- ddply(stn_mean_end, .(Year), summarize, pentad=match(TRUE, end))
+table(is.na(stn_mean_end_date$pentad))
+labeldata <- eqnfunc_slope(stn_mean_end_date, 'pentad ~ order(Year)')
+stn_mean_end_date_plot <- ggplot(stn_mean_end_date, aes(Year, pentad)) +
     geom_line() + xlab('Date') +
     ylab('Monsoon end pentad') + 
     geom_smooth(method="lm", se=TRUE) +

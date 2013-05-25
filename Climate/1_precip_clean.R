@@ -9,7 +9,7 @@ library(plyr)
 
 source('0_utility_functions.R')
 
-base_data_folder <-  'G:/Data/Nepal/Climate/Nepal_DHM/Precip/'
+base_data_folder <-  'R:/Data/Nepal/Climate/Nepal_DHM/Precip/'
 data_subfolders <- c('0704', '0706', '0902', '0903', '0920', '0925', '0927')
 
 raw_precip <- c()
@@ -101,6 +101,19 @@ precip <- ddply(precip, .(Station), transform,
               precip_gt_90=is_extreme(precip, 90, data_subset=(precip > 0)),
               precip_gt_95=is_extreme(precip, 95, data_subset=(precip > 0)),
               precip_gt_99=is_extreme(precip, 99, data_subset=(precip > 0)))
+
+precip <- ddply(precip, .(Station, Year), transform, precip_ann_cumsum=cumsum(precip))
+
+# The 2011 data doesn't look right, particularly for Rampur and Jhawani.
+# Looks like lots of uncoded missing values.  Eliminate the 2011 data for now.
+qplot(Date, precip_ann_cumsum, colour=Station, data=precip[precip$Year == 2009, ], geom='line')
+qplot(Date, precip_ann_cumsum, colour=Station, data=precip[precip$Year == 2010, ], geom='line')
+qplot(Date, precip_ann_cumsum, colour=Station, data=precip[precip$Year == 2011, ], geom='line')
+
+qplot(Julian_Day/5, precip_ann_cumsum, colour=factor(Year), linetype=factor(Year), 
+      data=precip[precip$Year >= 1990 & precip$Year < 2000, ], geom='line', facets=Station~.)
+
+precip <- precip[!(precip$Year) == 2011, ]
 
 save(precip, file='precip_daily_ALL_cleaned.Rdata')
 write.csv(precip, file='precip_daily_ALL_cleaned.csv', row.names=FALSE)
