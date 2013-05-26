@@ -66,8 +66,9 @@ pct_95_plot <- ggplot(gt_95, aes(Year, num_days)) +
     geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Days above 95th pct.') + 
     geom_smooth(method="lm", se=TRUE) +
-    geom_text(data=labeldata, aes(x=1970, y=13, label=eqn), parse=TRUE, 
-              colour='black', hjust=0, size=8) + ylim(c(0,14))
+    scale_y_continuous(breaks=c(0, 3, 6, 9, 12))
+    #geom_text(data=labeldata, aes(x=1970, y=13, label=eqn), parse=TRUE, 
+    #          colour='black', hjust=0, size=8) + ylim(c(0,14))
 png('precip_95th_above.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(pct_95_plot)
 dev.off()
@@ -158,8 +159,9 @@ rainy_days_plot <- ggplot(num_rainy_days, aes(Year, rainy_days)) +
     geom_line() + xlab('Date') + facet_grid(Station ~ .) +
     ylab('Rainy days') + 
     geom_smooth(method="lm", se=TRUE) +
-    geom_text(data=labeldata, aes(x=x_pos, y=y_pos, label=eqn), parse=TRUE, 
-              colour='black', hjust=0, size=8)
+    scale_y_continuous(breaks=c(60, 90, 120, 150))
+    #geom_text(data=labeldata, aes(x=x_pos, y=y_pos, label=eqn), parse=TRUE, 
+    #          colour='black', hjust=0, size=8)
 png('precip_rainy_days.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(rainy_days_plot)
 dev.off()
@@ -263,7 +265,7 @@ onset_date_plot <- ggplot(onset_date, aes(Year, pentad)) +
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=1970, y=35, label=eqn), parse=TRUE, 
               colour='black', hjust=0, size=8) +
-    geom_vline(data=no_onset_years, aes(xintercept=Year), alpha=.3, color='black', size=1)
+    geom_vline(data=no_onset_years, aes(xintercept=Year), alpha=.3, color='black', size=1, linetype=2)
 png('precip_monsoon_onset_date.png', width=PLOT_WIDTH*PLOT_DPI, 
     height=PLOT_HEIGHT*PLOT_DPI)
 print(onset_date_plot)
@@ -291,7 +293,7 @@ end_date_plot <- ggplot(end_date, aes(Year, pentad)) +
     geom_smooth(method="lm", se=TRUE) +
     geom_text(data=labeldata, aes(x=1970, y=50, label=eqn), parse=TRUE, 
               colour='black', hjust=0, size=8) + ylim(c(48, 62)) +
-    geom_vline(data=no_end_years, aes(xintercept=Year), alpha=.3, color='black', size=1)
+    geom_vline(data=no_end_years, aes(xintercept=Year), alpha=.3, color='black', size=1, linetype=2)
 png('precip_monsoon_end_date.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(end_date_plot)
 dev.off()
@@ -311,7 +313,7 @@ monsoon_date_melt_plot <- ggplot(monsoon_date_melt, aes(Year, pentad)) +
     ylab('Pentad') +
     theme(legend.position='none') +
     geom_smooth(method="lm", se=TRUE) +
-    geom_vline(data=no_end_onset_years, aes(xintercept=Year), color='black', size=.5)
+    geom_vline(data=no_end_onset_years, aes(xintercept=Year), color='black', size=.5, linetype=2)
 png('precip_monsoon_onset_end_meltplot.png', width=PLOT_WIDTH*PLOT_DPI*2, height=PLOT_HEIGHT*PLOT_DPI)
 print(monsoon_date_melt_plot)
 dev.off()
