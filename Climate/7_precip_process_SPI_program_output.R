@@ -66,3 +66,6 @@ SPI_melt_plot <- ggplot(SPI_melt, aes(Date, value)) +
 png('precip_monthly_SPI_meltplot.png', width=PLOT_WIDTH*PLOT_DPI*2, height=PLOT_HEIGHT*PLOT_DPI)
 print(SPI_melt_plot)
 dev.off()
+
+
+save(SPI, file=paste('precip_monthly_SPI_all_stations.Rdata', sep=''))
