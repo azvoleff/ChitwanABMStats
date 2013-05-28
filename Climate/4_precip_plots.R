@@ -239,9 +239,14 @@ check_neighbors <- function(x, num_neighbors, preceding=FALSE) {
 pentad_sum <- ddply(precip, .(Station, Year, Pentad), summarize,
                     sum=sum(precip))
 
+# thresh <- 3
+# low_thresh <- thresh - .5
+# up_thresh <- thresh + .5
+# num_neigh <- 6
+# num_meet <- 4
 thresh <- 3
-low_thresh <- thresh - .5
-up_thresh <- thresh + .5
+low_thresh <- thresh - .25
+up_thresh <- thresh + .25
 num_neigh <- 6
 num_meet <- 4
 onset <- ddply(pentad_sum, .(Station), summarize,
@@ -270,14 +275,13 @@ png('precip_monsoon_onset_date.png', width=PLOT_WIDTH*PLOT_DPI,
     height=PLOT_HEIGHT*PLOT_DPI)
 print(onset_date_plot)
 dev.off()
+save(onset_date, file='precip_monsoon_onset_date.Rdata')
 
 end <- ddply(pentad_sum, .(Station), summarize,
              Year=Year, Pentad=Pentad, sum=sum, sum_lt_thresh=sum < thresh,
              preced_gt_up_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh, preceding=TRUE) > up_thresh) >= num_meet),
              subseq_lt_low_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh) < low_thresh) >= num_meet))
-end$end <- end$sum_lt_thresh & end$preced_gt_up_thresh & end$subseq_lt_low_thresh
-# Set end dates before the 40th pentad to NA
-end$end[end$end & end$Pentad < 40] <- NA
+end$end <- end$sum_lt_thresh & end$preced_gt_up_thresh & end$subseq_lt_low_thres & (end$Pentad > 40)
 end_date <- ddply(end, .(Station, Year), summarize, pentad=match(TRUE, end))
 no_end_years <- end_date[is.na(end_date$pentad), ]
 # Don't count years with missing data as years with no end:
@@ -297,6 +301,7 @@ end_date_plot <- ggplot(end_date, aes(Year, pentad)) +
 png('precip_monsoon_end_date.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(end_date_plot)
 dev.off()
+save(end_date_plot, file='precip_monsoon_end_date.Rdata')
 
 ###############################################################################
 # Faceted monsoon_date melt plot with onset/end
@@ -304,8 +309,8 @@ end_date$Type <- 'End'
 onset_date$Type <- 'Onset'
 monsoon_date_melt <- rbind(end_date, onset_date)
 monsoon_date_melt$Type <- factor(monsoon_date_melt$Type, levels=c('Onset', 'End'))
-no_end_years$Type <- 'End'
-no_onset_years$Type <- 'Onset'
+if (nrow(no_end_years) > 0) {no_end_years$Type <- 'End'}
+if (nrow(no_onset_years) > 0) {no_onset_years$Type <- 'Onset'}
 no_end_onset_years <- rbind(no_onset_years, no_end_years)
 monsoon_date_melt_plot <- ggplot(monsoon_date_melt, aes(Year, pentad)) +
     geom_line() + xlab('Time') +

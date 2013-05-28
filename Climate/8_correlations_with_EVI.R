@@ -39,15 +39,15 @@ SPI <- SPI[SPI$Station == 'Rampur', ]
 filter_years <- 2
 filter_size <- 365*filter_years
 
-precip$mean_precip_2yr <- filter(precip$precip, rep(1/filter_size, filter_size), sides=1)*365
-discharge$mean_discharge_2yr <- filter(discharge$discharge*60*60*24, rep(1/filter_size, filter_size), sides=1)*365
+precip$mean_precip_24mth <- filter(precip$precip, rep(1/filter_size, filter_size), sides=1)*365
+discharge$mean_discharge_24mth <- filter(discharge$discharge*60*60*24, rep(1/filter_size, filter_size), sides=1)*365
 
 precip_monthly <- ddply(precip, .(Year, Month), summarize,
                         mean_precip=mean(precip, na.rm=TRUE),
-                        mean_precip_2yr=mean(mean_precip_2yr, na.rm=TRUE))
+                        mean_precip_24mth=mean(mean_precip_24mth, na.rm=TRUE))
 discharge_monthly <- ddply(discharge, .(Year, Month), summarize,
                         mean_discharge=mean(discharge, na.rm=TRUE),
-                        mean_discharge_2yr=mean(mean_discharge_2yr, na.rm=TRUE))
+                        mean_discharge_24mth=mean(mean_discharge_24mth, na.rm=TRUE))
 temp_monthly <- ddply(temp, .(Year, Month), summarize,
                         mean_maxt=mean(max_temp, na.rm=TRUE),
                         mean_mint=mean(min_temp, na.rm=TRUE))
@@ -58,11 +58,6 @@ discharge_monthly$Date <- as.Date(paste(discharge_monthly$Year,
 temp_monthly$Date <- as.Date(paste(temp_monthly$Year,
                                      temp_monthly$Month, '15'), '%Y %m %d')
 
-# Standardize the 2 year EVI
-EVI_monthly$mean_EVI_2yr_std <- with(EVI_monthly,
-                                     (mean_EVI_2yr - mean(mean_EVI_2yr, na.rm=TRUE)) /
-                                      sd(mean_EVI_2yr, na.rm=TRUE))
-
 # Limit series to 2001-2008 as discharge data is not available past 2008, and 
 # EVI data is only available back to 2000
 EVI_monthly <- EVI_monthly[EVI_monthly$Year >= 2000 & EVI_monthly$Year <= 2008, ]
@@ -72,14 +67,23 @@ discharge_monthly <- discharge_monthly[discharge_monthly$Date %in% EVI_monthly$D
 temp_monthly <- temp_monthly[temp_monthly$Date %in% EVI_monthly$Date, ]
 SPI <- SPI[SPI$Date %in% EVI_monthly$Date, ]
 
+EVI_monthly <- merge(EVI_monthly, precip_monthly)
+EVI_monthly <- merge(EVI_monthly, discharge_monthly)
+EVI_monthly <- merge(EVI_monthly, temp_monthly)
+EVI_monthly <- merge(EVI_monthly, SPI)
+
 model_vars <- data.frame(Date=EVI_monthly$Date,
                          mean_EVI=EVI_monthly$mean_EVI,
-                         mean_EVI_2yr=EVI_monthly$mean_EVI_2yr,
-                         mean_EVI_2yr_std=EVI_monthly$mean_EVI_2yr_std,
+                         mean_EVI_6mth=EVI_monthly$mean_EVI_6mth,
+                         mean_EVI_6mth_norm=EVI_monthly$mean_EVI_6mth_norm,
+                         mean_EVI_12mth=EVI_monthly$mean_EVI_12mth,
+                         mean_EVI_12mth_norm=EVI_monthly$mean_EVI_12mth_norm,
+                         mean_EVI_24mth=EVI_monthly$mean_EVI_24mth,
+                         mean_EVI_24mth_norm=EVI_monthly$mean_EVI_24mth_norm,
                          mean_precip=precip_monthly$mean_precip,
-                         mean_precip_2yr=precip_monthly$mean_precip_2yr,
+                         mean_precip_24mth=precip_monthly$mean_precip_24mth,
                          mean_discharge=discharge_monthly$mean_discharge,
-                         mean_discharge_2yr=discharge_monthly$mean_discharge_2yr,
+                         mean_discharge_24mth=discharge_monthly$mean_discharge_24mth,
                          mean_mint=temp_monthly$mean_mint,
                          mean_maxt=temp_monthly$mean_maxt,
                          SPI_6=SPI$SPI_6,
@@ -113,21 +117,41 @@ summary(lm_mean_maxt)
 lm_mean_maxt_lag <- lm(mean_EVI ~ lagged_mean_maxt, data=model_vars)
 summary(lm_mean_maxt_lag)
 
-lm_SPI_12 <- lm(mean_EVI_2yr ~ SPI_24, data=model_vars)
+lm_SPI_6 <- lm(mean_EVI_6mth ~ SPI_6, data=model_vars)
+summary(lm_SPI_6)
+
+lm_SPI_12 <- lm(mean_EVI_12mth ~ SPI_12, data=model_vars)
+summary(lm_SPI_12)
+
+lm_SPI_24 <- lm(mean_EVI_24mth ~ SPI_24, data=model_vars)
 summary(lm_SPI_24)
 
-lm_SPI_24 <- lm(mean_EVI_2yr ~ SPI_24, data=model_vars)
-summary(lm_SPI_24)
+EVI_monthly_6mth_vs_SPI_plot <- ggplot(data=EVI_monthly) +
+    geom_line(aes(Date, scale(mean_EVI_6mth), colour='6 month EVI', linetype='6 month EVI'), size=.75) +
+    geom_line(aes(Date, scale(SPI_6), colour='6 month SPI', linetype='6 month SPI'), size=.75) +
+    guides(colour=guide_legend(title='Legend'),
+           linetype=guide_legend(title='Legend'))
+png('EVI_monthly_6mth_vs_SPI.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print(EVI_monthly_6mth_vs_SPI_plot)
+dev.off()
 
-qplot(Date, SPI_24, colour=as.factor(Year), data=model_vars)
+EVI_monthly_12mth_vs_SPI_plot <- ggplot(data=EVI_monthly) +
+    geom_line(aes(Date, scale(mean_EVI_12mth), colour='12 month EVI', linetype='12 month EVI'), size=.75) +
+    geom_line(aes(Date, scale(SPI_12), colour='12 month SPI', linetype='12 month SPI'), size=.75) +
+    guides(colour=guide_legend(title='Legend'),
+           linetype=guide_legend(title='Legend'))
+png('EVI_monthly_12mth_vs_SPI.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print(EVI_monthly_12mth_vs_SPI_plot)
+dev.off()
 
-qplot(SPI_24, mean_EVI_2yr, colour=as.factor(Year), data=model_vars)
-
-ggplot(model_vars_melt[model_vars_melt$variable %in% c('mean_EVI_2yr', 'SPI_24'), ]) +
-    geom_line(aes(Date, value)) + facet_grid(variable ~ ., scales='free')
-
-ggplot(model_vars_melt[model_vars_melt$variable %in% c('mean_EVI_2yr_std', 'SPI_24'), ]) +
-    geom_line(aes(Date, value)) + facet_grid(variable ~ ., scales='free')
+EVI_monthly_24mth_vs_SPI_plot <- ggplot(data=EVI_monthly) +
+    geom_line(aes(Date, scale(mean_EVI_24mth), colour='24 month EVI', linetype='24 month EVI'), size=.75) +
+    geom_line(aes(Date, scale(SPI_24), colour='24 month SPI', linetype='24 month SPI'), size=.75) +
+    guides(colour=guide_legend(title='Legend'),
+           linetype=guide_legend(title='Legend'))
+png('EVI_monthly_24mth_vs_SPI.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print(EVI_monthly_24mth_vs_SPI_plot)
+dev.off()
 
 ccf(model_vars$mean_EVI, model_vars$mean_discharge)
 
@@ -135,9 +159,9 @@ ccf(model_vars$mean_EVI, model_vars$mean_precip)
 
 ccf(model_vars$mean_EVI, model_vars$SPI_24)
 
-with(model_vars[!is.na(model_vars$mean_EVI_2yr), ], ccf(mean_EVI_2yr, mean_precip_2yr))
+with(model_vars[!is.na(model_vars$mean_EVI_24mth), ], ccf(mean_EVI_24mth, mean_precip_24mth))
 
-with(model_vars[!is.na(model_vars$mean_EVI_2yr), ], ccf(mean_EVI_2yr, mean_discharge_2yr))
+with(model_vars[!is.na(model_vars$mean_EVI_24mth), ], ccf(mean_EVI_24mth, mean_discharge_24mth))
 
 ################################################################################
 # Make correlation maps
@@ -155,7 +179,7 @@ precip$Period <- cut(precip$Julian_Day, seq(1, 370, 16), right=FALSE)
 period_precip <- ddply(precip, .(Year, Period), summarize,
                        start_Julian_Day=Julian_Day[1], Season=Season[1],
                        total=sum(precip, na.rm=TRUE),
-                       mean_precip_2yr=mean(mean_precip_2yr, na.rm=TRUE))
+                       mean_precip_24mth=mean(mean_precip_24mth, na.rm=TRUE))
 period_precip$Date <- as.Date(paste(period_precip$Year, period_precip$start_Julian_Day), '%Y %j')
 period_precip <- period_precip[period_precip$Date %in% EVI_dates, ]
 
@@ -164,7 +188,7 @@ discharge$Period <- cut(discharge$Julian_Day, seq(1, 370, 16), right=FALSE)
 period_discharge <- ddply(discharge, .(Year, Period), summarize,
                        start_Julian_Day=Julian_Day[1], Season=Season[1],
                        total=sum(discharge, na.rm=TRUE),
-                       mean_discharge_2yr=mean(mean_discharge_2yr, na.rm=TRUE))
+                       mean_discharge_24mth=mean(mean_discharge_24mth, na.rm=TRUE))
 period_discharge$Date <- as.Date(paste(period_discharge$Year, period_discharge$start_Julian_Day), '%Y %j')
 period_discharge <- period_discharge[period_discharge$Date %in% EVI_dates, ]
 
@@ -181,10 +205,10 @@ ttsraster <- ttsdf2raster(tts_df, base_image_file)
 filter_years <- 2
 filter_size <- 23*filter_years
 # Remember that cols 1 and 2 are the row and col numbers
-tts_df_2yr_rollmean <- data.frame(t(apply(tts_df[, 3:ncol(tts_df)], 1, function(x) {filter(x, rep(1/filter_size, filter_size), sides=1)})))
-tts_df_2yr_rollmean <- cbind(row=tts_df$row, col=tts_df$col, tts_df_2yr_rollmean)
-names(tts_df_2yr_rollmean) <- gsub('X', 't', names(tts_df_2yr_rollmean))
-ttsraster_rollmean <- ttsdf2raster(tts_df_2yr_rollmean, base_image_file)
+tts_df_24mth_rollmean <- data.frame(t(apply(tts_df[, 3:ncol(tts_df)], 1, function(x) {filter(x, rep(1/filter_size, filter_size), sides=1)})))
+tts_df_24mth_rollmean <- cbind(row=tts_df$row, col=tts_df$col, tts_df_24mth_rollmean)
+names(tts_df_24mth_rollmean) <- gsub('X', 't', names(tts_df_24mth_rollmean))
+ttsraster_rollmean <- ttsdf2raster(tts_df_24mth_rollmean, base_image_file)
 
 ################################################################################
 # First make simple correlation maps
@@ -210,13 +234,14 @@ plot_cor_df <- function(cor_df, png_file) {
         scale_fill_gradient2(midpoint=0, low='blue', mid='yellow', high='red',
                              limits=c(-1, 1), name='Correlation') +
         guides(fill=guide_colorbar(barwidth=.5, barheight=4, ticks=FALSE)) +
-        geom_path(data=cvfs_area.df, aes(long, lat), color='black', size=.5, alpha=.5)
+        geom_path(data=cvfs_area.df, aes(long, lat), color='black', size=.5, alpha=.7)
     ggsave(png_file, width=PLOT_WIDTH*2, height=PLOT_HEIGHT*.5*2, dpi=PLOT_DPI)
 }
 
 # Correlation of EVI with precip - have to end at period 253 (last period in 
 # 2010) as there is no good precip data for 2011
-EVI_cor_precip <- calc(ttsraster, seq(1, 253), fun=function(x){cor(x, period_precip$total)})
+EVI_cor_precip <- calc(subset(ttsraster, seq(1, 253)),
+                       fun=function(x){cor(x, period_precip$total)})
 writeRaster(EVI_cor_precip, 'EVI_cor_precip.envi', format='ENVI', overwrite=TRUE)
 EVI_cor_precip_df <- data.frame(x=coordinates(EVI_cor_precip)[, 1],
                                    y=coordinates(EVI_cor_precip)[, 2],
@@ -226,14 +251,14 @@ plot_cor_df(EVI_cor_precip_df, 'EVI_cor_precip_plot.png')
 
 # Have to start at period 46 since the 2 year filter on the EVI leads to NAs 
 # for the first 45 periods.
-EVI_cor_precip_2yr <- calc(subset(ttsraster_rollmean, c(46:nlayers(ttsraster_rollmean))),
-                           fun=function(x){cor(x, period_precip$mean_precip_2yr[46:nrow(period_precip)])})
-writeRaster(EVI_cor_precip_2yr, 'EVI_cor_precip_2yr.envi', format='ENVI', overwrite=TRUE)
-EVI_cor_precip_2yr_df <- data.frame(x=coordinates(EVI_cor_precip_2yr)[, 1],
-                                   y=coordinates(EVI_cor_precip_2yr)[, 2],
-                                   cor=getValues(EVI_cor_precip_2yr))
-EVI_cor_precip_2yr_df <- EVI_cor_precip_2yr_df[!is.na(EVI_cor_precip_2yr_df$cor), ]
-plot_cor_df(EVI_cor_precip_2yr_df, 'EVI_cor_precip_2yr_plot.png')
+EVI_cor_precip_24mth <- calc(subset(ttsraster_rollmean, c(46:253)),
+                           fun=function(x){cor(x, period_precip$mean_precip_24mth[46:nrow(period_precip)])})
+writeRaster(EVI_cor_precip_24mth, 'EVI_cor_precip_24mth.envi', format='ENVI', overwrite=TRUE)
+EVI_cor_precip_24mth_df <- data.frame(x=coordinates(EVI_cor_precip_24mth)[, 1],
+                                   y=coordinates(EVI_cor_precip_24mth)[, 2],
+                                   cor=getValues(EVI_cor_precip_24mth))
+EVI_cor_precip_24mth_df <- EVI_cor_precip_24mth_df[!is.na(EVI_cor_precip_24mth_df$cor), ]
+plot_cor_df(EVI_cor_precip_24mth_df, 'EVI_cor_precip_24mth_plot.png')
 
 # Correlation of EVI with discharge mean
 EVI_cor_discharge <- calc(subset(ttsraster, seq(1, 207)), 
@@ -245,14 +270,14 @@ EVI_cor_discharge_df <- data.frame(x=coordinates(EVI_cor_discharge)[, 1],
 EVI_cor_discharge_df <- EVI_cor_discharge_df[!is.na(EVI_cor_discharge_df$cor), ]
 plot_cor_df(EVI_cor_discharge_df, 'EVI_cor_discharge_plot.png')
 
-EVI_cor_discharge_2yr <- calc(subset(ttsraster_rollmean, c(46:207)),
-                           fun=function(x){cor(x, period_discharge$mean_discharge_2yr[46:207])})
-writeRaster(EVI_cor_discharge_2yr, 'EVI_cor_discharge_2yr.envi', format='ENVI', overwrite=TRUE)
-EVI_cor_discharge_2yr_df <- data.frame(x=coordinates(EVI_cor_discharge_2yr)[, 1],
-                                   y=coordinates(EVI_cor_discharge_2yr)[, 2],
-                                   cor=getValues(EVI_cor_discharge_2yr))
-EVI_cor_discharge_2yr_df <- EVI_cor_discharge_2yr_df[!is.na(EVI_cor_discharge_2yr_df$cor), ]
-plot_cor_df(EVI_cor_discharge_2yr_df, 'EVI_cor_discharge_2yr_plot.png')
+EVI_cor_discharge_24mth <- calc(subset(ttsraster_rollmean, c(46:207)),
+                           fun=function(x){cor(x, period_discharge$mean_discharge_24mth[46:207])})
+writeRaster(EVI_cor_discharge_24mth, 'EVI_cor_discharge_24mth.envi', format='ENVI', overwrite=TRUE)
+EVI_cor_discharge_24mth_df <- data.frame(x=coordinates(EVI_cor_discharge_24mth)[, 1],
+                                   y=coordinates(EVI_cor_discharge_24mth)[, 2],
+                                   cor=getValues(EVI_cor_discharge_24mth))
+EVI_cor_discharge_24mth_df <- EVI_cor_discharge_24mth_df[!is.na(EVI_cor_discharge_24mth_df$cor), ]
+plot_cor_df(EVI_cor_discharge_24mth_df, 'EVI_cor_discharge_24mth_plot.png')
 
 ###############################################################################
 # TODO: Idea - plot mean anomaly
