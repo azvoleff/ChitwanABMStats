@@ -60,70 +60,53 @@ temp_monthly$Date <- as.Date(paste(temp_monthly$Year,
 
 # Limit series to 2001-2008 as discharge data is not available past 2008, and 
 # EVI data is only available back to 2000
-EVI_monthly <- EVI_monthly[EVI_monthly$Year >= 2000 & EVI_monthly$Year <= 2008, ]
+EVI_monthly <- EVI_monthly[EVI_monthly$Year >= 2000, ]
 
 precip_monthly <- precip_monthly[precip_monthly$Date %in% EVI_monthly$Date, ]
 discharge_monthly <- discharge_monthly[discharge_monthly$Date %in% EVI_monthly$Date, ]
 temp_monthly <- temp_monthly[temp_monthly$Date %in% EVI_monthly$Date, ]
 SPI <- SPI[SPI$Date %in% EVI_monthly$Date, ]
 
-EVI_monthly <- merge(EVI_monthly, precip_monthly)
-EVI_monthly <- merge(EVI_monthly, discharge_monthly)
-EVI_monthly <- merge(EVI_monthly, temp_monthly)
-EVI_monthly <- merge(EVI_monthly, SPI)
+EVI_monthly <- merge(EVI_monthly, precip_monthly, all.x=TRUE)
+EVI_monthly <- merge(EVI_monthly, discharge_monthly, all.x=TRUE)
+EVI_monthly <- merge(EVI_monthly, temp_monthly, all.x=TRUE)
+EVI_monthly <- merge(EVI_monthly, SPI, all.x=TRUE)
+EVI_monthly <- EVI_monthly[order(EVI_monthly$Date), ]
 
-model_vars <- data.frame(Date=EVI_monthly$Date,
-                         mean_EVI=EVI_monthly$mean_EVI,
-                         mean_EVI_6mth=EVI_monthly$mean_EVI_6mth,
-                         mean_EVI_6mth_norm=EVI_monthly$mean_EVI_6mth_norm,
-                         mean_EVI_12mth=EVI_monthly$mean_EVI_12mth,
-                         mean_EVI_12mth_norm=EVI_monthly$mean_EVI_12mth_norm,
-                         mean_EVI_24mth=EVI_monthly$mean_EVI_24mth,
-                         mean_EVI_24mth_norm=EVI_monthly$mean_EVI_24mth_norm,
-                         mean_precip=precip_monthly$mean_precip,
-                         mean_precip_24mth=precip_monthly$mean_precip_24mth,
-                         mean_discharge=discharge_monthly$mean_discharge,
-                         mean_discharge_24mth=discharge_monthly$mean_discharge_24mth,
-                         mean_mint=temp_monthly$mean_mint,
-                         mean_maxt=temp_monthly$mean_maxt,
-                         SPI_6=SPI$SPI_6,
-                         SPI_12=SPI$SPI_12,
-                         SPI_24=SPI$SPI_24)
-model_vars$Year <- year(model_vars$Date)
-model_vars$Month <- month(model_vars$Date)
-model_vars$lagged_precip <- lag_vector(model_vars$mean_precip, )
-model_vars$lagged_discharge <- lag_vector(model_vars$mean_discharge, 1)
-model_vars$lagged_mean_mint <- lag_vector(model_vars$mean_mint, 1)
-model_vars$lagged_mean_maxt <- lag_vector(model_vars$mean_maxt, 1)
-model_vars_melt <- melt(model_vars, id.vars='Date')
+EVI_monthly$Year <- year(EVI_monthly$Date)
+EVI_monthly$Month <- month(EVI_monthly$Date)
+EVI_monthly$lagged_precip <- lag_vector(EVI_monthly$mean_precip, )
+EVI_monthly$lagged_discharge <- lag_vector(EVI_monthly$mean_discharge, 1)
+EVI_monthly$lagged_mean_mint <- lag_vector(EVI_monthly$mean_mint, 1)
+EVI_monthly$lagged_mean_maxt <- lag_vector(EVI_monthly$mean_maxt, 1)
 
-lm_discharge <- lm(mean_EVI ~ mean_discharge, data=model_vars)
+lm_discharge <- lm(mean_EVI ~ mean_discharge, data=EVI_monthly)
 summary(lm_discharge)
-lm_discharge_lag <- lm(mean_EVI ~ lagged_discharge, data=model_vars)
+lm_discharge_lag <- lm(mean_EVI ~ lagged_discharge, data=EVI_monthly)
 summary(lm_discharge_lag)
 
-lm_precip <- lm(mean_EVI ~ mean_precip, data=model_vars)
+lm_precip <- lm(mean_EVI ~ mean_precip, data=EVI_monthly)
 summary(lm_precip)
-lm_precip_lag <- lm(mean_EVI ~ lagged_precip, data=model_vars)
+lm_precip_lag <- lm(mean_EVI ~ lagged_precip, data=EVI_monthly)
 summary(lm_precip_lag)
 
-lm_mean_mint <- lm(mean_EVI ~ mean_mint, data=model_vars)
+lm_mean_mint <- lm(mean_EVI ~ mean_mint, data=EVI_monthly)
 summary(lm_mean_mint)
-lm_mean_mint_lag <- lm(mean_EVI ~ lagged_mean_mint, data=model_vars)
+lm_mean_mint_lag <- lm(mean_EVI ~ lagged_mean_mint, data=EVI_monthly)
 summary(lm_mean_mint_lag)
 
-lm_mean_maxt <- lm(mean_EVI ~ mean_maxt, data=model_vars)
+lm_mean_maxt <- lm(mean_EVI ~ mean_maxt, data=EVI_monthly)
 summary(lm_mean_maxt)
-lm_mean_maxt_lag <- lm(mean_EVI ~ lagged_mean_maxt, data=model_vars)
+lm_mean_maxt_lag <- lm(mean_EVI ~ lagged_mean_maxt, data=EVI_monthly)
 summary(lm_mean_maxt_lag)
 
-lm_SPI_6 <- lm(mean_EVI_6mth ~ SPI_6, data=model_vars)
+lm_SPI_6 <- lm(mean_EVI_6mth ~ SPI_6, data=EVI_monthly)
 summary(lm_SPI_6)
 
-lm_SPI_12 <- lm(mean_EVI_12mth ~ SPI_12, data=model_vars)
+lm_SPI_12 <- lm(mean_EVI_12mth ~ SPI_12, data=EVI_monthly)
 summary(lm_SPI_12)
 
-lm_SPI_24 <- lm(mean_EVI_24mth ~ SPI_24, data=model_vars)
+lm_SPI_24 <- lm(mean_EVI_24mth ~ SPI_24, data=EVI_monthly)
 summary(lm_SPI_24)
 
 EVI_monthly_6mth_vs_SPI_plot <- ggplot(data=EVI_monthly) +
@@ -153,15 +136,105 @@ png('EVI_monthly_24mth_vs_SPI.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGH
 print(EVI_monthly_24mth_vs_SPI_plot)
 dev.off()
 
-ccf(model_vars$mean_EVI, model_vars$mean_discharge)
+###############################################################################
+# Plot correlation with annual yields
+###############################################################################
+# Load the Chitwan annual yield data and merge it with the MODIS indicators
+chitwan_yields <- read.csv('R:/Data/Nepal/Nepal_Census/Chitwan_Annual_AgProduction_From_Yearbooks.csv', skip=1)
+EVI_annual <- ddply(EVI_monthly, .(Year), summarize,
+                    SPI_12_Oct=SPI_6[10],
+                    SPI_6_Oct=SPI_6[10],
+                    EVI_6_Oct=mean_EVI_6mth[10],
+                    SPI_6=mean(SPI_6),
+                    EVI_6=mean(mean_EVI_6mth),
+                    SPI_12=mean(SPI_12),
+                    EVI_12=mean(mean_EVI_12mth))
+merged_yields <- merge(EVI_annual, chitwan_yields, by.x='Year', by.y='Year_End')
+# Load the seasonal indicators from the TIMESAT TTS files
+load('C:/Users/azvoleff/Code/IDL/Chitwan_MODIS_SVIs/EVI_seasonal_indicators_mean_over_valley.Rdata')
+valley_means$Year <- year(valley_means$Year)
+merged_yields <- merge(merged_yields, valley_means)
 
-ccf(model_vars$mean_EVI, model_vars$mean_precip)
+#std_indic <- with(merged_yields, data.frame(EVI_12, Paddy, Maize))
+std_indic <- with(merged_yields, data.frame(amp, EVI_6_Oct, EVI_12, SPI_6, 
+                                            SPI_12, Paddy, Maize))
+std_indic <- data.frame(scale(std_indic))
+std_indic <- cbind(Year=merged_yields$Year, std_indic)
+std_indic <- melt(std_indic, id.vars='Year')
+std_indic$variable <- as.character(std_indic$variable)
+std_indic$variable[std_indic$variable == 'amp'] <- 'Amplitude of season'
+std_indic$variable[std_indic$variable == 'EVI_6_Oct'] <- 'May-Oct EVI'
+std_indic$variable[std_indic$variable == 'EVI_12'] <- '12 month EVI'
+std_indic$variable[std_indic$variable == 'SPI_6'] <- '6 month SPI'
+std_indic$variable[std_indic$variable == 'SPI_12'] <- '12 month SPI'
+std_indic$variable[std_indic$variable == 'Paddy'] <- 'Paddy yield'
+std_indic$variable[std_indic$variable == 'Maize'] <- 'Maize yield'
+std_indic$variable <- factor(std_indic$variable,
+                             levels=c('Amplitude of season',
+                                      'May-Oct EVI',
+                                      '12 month EVI',
+                                      '6 month SPI',
+                                      '12 month SPI',
+                                      'Paddy yield',
+                                      'Maize yield'))
+std_indic$Date <- as.Date(paste(std_indic$Year, 1, 1, sep='/'))
 
-ccf(model_vars$mean_EVI, model_vars$SPI_24)
+EVI_annual_yields_plot <- ggplot(data=std_indic[std_indic$variable %in% c('Amplitude of season',
+                                                                          'Paddy yield',
+                                                                          'Maize yield'), ],
+                                 aes(Date, value, colour=variable, linetype=variable)) +
+    geom_line() + geom_point(size=3) +
+    guides(colour=guide_legend(title='Legend'),
+           linetype=guide_legend(title='Legend')) +
+    ylab('Standardized value') +  theme(legend.position='bottom') + xlab('Year')
+png('annual_yields_plot_EVI_amp.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print(EVI_annual_yields_plot)
+dev.off()
 
-with(model_vars[!is.na(model_vars$mean_EVI_24mth), ], ccf(mean_EVI_24mth, mean_precip_24mth))
+SPI_annual_yields_plot <- ggplot(data=std_indic[std_indic$variable %in% c('12 month SPI',
+                                                                          'Paddy yield',
+                                                                          'Maize yield'), ],
+                                 aes(Date, value, colour=variable, linetype=variable)) +
+    geom_line() + geom_point(size=3) +
+    guides(colour=guide_legend(title='Legend'),
+           linetype=guide_legend(title='Legend')) +
+    ylab('Standardized value') +  theme(legend.position='bottom') + xlab('Year')
+png('annual_yields_plot_SPI.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print(SPI_annual_yields_plot)
+dev.off()
 
-with(model_vars[!is.na(model_vars$mean_EVI_24mth), ], ccf(mean_EVI_24mth, mean_discharge_24mth))
+cor.test(merged_yields$amp, merged_yields$Maize, use='complete.obs')
+cor.test(merged_yields$amp, merged_yields$Paddy, use='complete.obs')
+
+cor.test(merged_yields$SPI_12_Oct, merged_yields$Maize, use='complete.obs')
+cor.test(merged_yields$SPI_12_Oct, merged_yields$Paddy, use='complete.obs')
+
+cor.test(merged_yields$EVI_6_Oct, merged_yields$Maize, use='complete.obs')
+cor.test(merged_yields$EVI_6_Oct, merged_yields$Paddy, use='complete.obs')
+
+library(boot)
+boot_calc_cor <- function(data, k) cor(data[k,], use='complete.obs')[1,2]
+boot_cor_paddy <- boot(data=with(merged_yields, cbind(amp, Paddy)), 
+                       statistic=boot_calc_cor, R=10000)
+boot_cor_paddy
+boot.ci(boot_cor_paddy)
+
+boot_cor_maize <- boot(data=with(merged_yields, cbind(amp, Maize)), 
+                       statistic=boot_calc_cor, R=10000)
+boot_cor_maize
+boot.ci(boot_cor_maize)
+
+
+
+ccf(EVI_monthly$mean_EVI, EVI_monthly$mean_discharge)
+
+ccf(EVI_monthly$mean_EVI, EVI_monthly$mean_precip)
+
+ccf(EVI_monthly$mean_EVI, EVI_monthly$SPI_24)
+
+with(EVI_monthly[!is.na(EVI_monthly$mean_EVI_24mth), ], ccf(mean_EVI_24mth, mean_precip_24mth))
+
+with(EVI_monthly[!is.na(EVI_monthly$mean_EVI_24mth), ], ccf(mean_EVI_24mth, mean_discharge_24mth))
 
 ################################################################################
 # Make correlation maps
@@ -193,10 +266,10 @@ period_discharge$Date <- as.Date(paste(period_discharge$Year, period_discharge$s
 period_discharge <- period_discharge[period_discharge$Date %in% EVI_dates, ]
 
 # Load EVI data
-tts_file_name <- 'G:/Data/Nepal/Imagery/MODIS/MOD13Q1_Chitwan_Cropped/Chitwan_MOD13Q1_EVI_Full_Series_Cropped_Expanded_fit.tts'
+tts_file_name <- 'R:/Data/Nepal/Imagery/MODIS/MOD13Q1_Chitwan_Cropped/Chitwan_MOD13Q1_EVI_Full_Series_Cropped_Expanded_fit.tts'
 tts_df <- tts2df(tts_file_name)
-base_image_file <- 'G:/Data/Nepal/Imagery/MODIS/MOD13Q1_Chitwan_Cropped/2000001_MOD13Q1_EVI_scaled_flt16.envi'
-CVFS_area_mask <- raster('G:/Data/Nepal/Imagery/MODIS/AOIs/CVFS_Study_Area_mask_float.img')
+base_image_file <- 'R:/Data/Nepal/Imagery/MODIS/MOD13Q1_Chitwan_Cropped/2000001_MOD13Q1_EVI_scaled_flt16.envi'
+CVFS_area_mask <- raster('R:/Data/Nepal/Imagery/MODIS/AOIs/CVFS_Study_Area_mask_float.img')
 ttsraster <- ttsdf2raster(tts_df, base_image_file)
 #ttsraster <- setValues(ttsraster, getValues(ttsraster) * 
 #                       getValues(CVFS_area_mask))
@@ -214,7 +287,7 @@ ttsraster_rollmean <- ttsdf2raster(tts_df_24mth_rollmean, base_image_file)
 # First make simple correlation maps
 
 # Load CVFS area polygon so it can be shown on the image
-cvfs_area <- readOGR(dsn="G:/Data/Nepal/GIS/ChitwanDistrict", layer="CVFS_Study_Area")
+cvfs_area <- readOGR(dsn="R:/Data/Nepal/GIS/ChitwanDistrict", layer="CVFS_Study_Area")
 # Need to transform CVFS polygon to WGS84 since it is in UTM
 cvfs_area  <- spTransform(cvfs_area, CRS("+init=epsg:4326"))
 cvfs_area@data$id <- rownames(cvfs_area@data)
