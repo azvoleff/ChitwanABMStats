@@ -47,7 +47,6 @@ for (SPI_length in SPI_lengths) {
     dev.off()
 }
 
-
 # Make a meltplot for publication
 SPI_melt <- melt(SPI, id.vars=c('Station', 'Date'),
                  measure.vars=c('SPI_6', 'SPI_24'))

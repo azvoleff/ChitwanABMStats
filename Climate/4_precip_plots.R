@@ -11,8 +11,6 @@ load('precip_daily_Chitwan_cleaned.Rdata')
 
 precip$Period <- cut(precip$Year, c(1980, 1995, 2010), dig.lab=4)
 
-#precip <- precip[precip$Year> 1980, ]
-
 ###############################################################################
 # Note that many of these metrics are from:
 # Bodini, A., and Q. A. Cossu. “Vulnerability Assessment of Central-East 
