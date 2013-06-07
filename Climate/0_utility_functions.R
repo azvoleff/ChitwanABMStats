@@ -72,8 +72,11 @@ eqnfunc_slope <- function(d, model_formula, two_lines=FALSE) {
 ###############################################################################
 # Function to calculate if data values exceed (or are lower than) a certain 
 # percentile.
-is_extreme <- function(data_vec, prob, greater=TRUE, data_subset=NULL) {
+is_extreme <- function(data_vec, prob, greater=TRUE, data_subset=NULL, thresholds_only=FALSE) {
     if (is.null(data_subset)) {data_subset<- rep(TRUE, length(data_vec))}
+    if (thresholds_only == TRUE) {
+        return(quantile(data_vec[data_subset], prob=prob/100, na.rm=TRUE))
+    }
     if (greater) {
         return(data_vec > quantile(data_vec[data_subset], prob=prob/100, na.rm=TRUE))
     } else {

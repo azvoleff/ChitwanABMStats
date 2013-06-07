@@ -156,12 +156,16 @@ valley_means$Year <- year(valley_means$Year)
 merged_yields <- merge(merged_yields, valley_means)
 
 #std_indic <- with(merged_yields, data.frame(EVI_12, Paddy, Maize))
-std_indic <- with(merged_yields, data.frame(amp, EVI_6_Oct, EVI_12, SPI_6, 
-                                            SPI_12, Paddy, Maize))
+std_indic <- with(merged_yields, data.frame(amp, Sinteg_mean, Sinteg_sum, 
+                                            Linteg_mean, Linteg_sum, EVI_6_Oct, 
+                                            EVI_12, SPI_6, SPI_12, Paddy, 
+                                            Maize))
 std_indic <- data.frame(scale(std_indic))
 std_indic <- cbind(Year=merged_yields$Year, std_indic)
 std_indic <- melt(std_indic, id.vars='Year')
 std_indic$variable <- as.character(std_indic$variable)
+std_indic$variable[std_indic$variable == 'Sinteg_sum'] <- 'Seasonal growth'
+std_indic$variable[std_indic$variable == 'Linteg_sum'] <- 'Total growth'
 std_indic$variable[std_indic$variable == 'amp'] <- 'Amplitude of season'
 std_indic$variable[std_indic$variable == 'EVI_6_Oct'] <- 'May-Oct EVI'
 std_indic$variable[std_indic$variable == 'EVI_12'] <- '12 month EVI'
@@ -170,7 +174,9 @@ std_indic$variable[std_indic$variable == 'SPI_12'] <- '12 month SPI'
 std_indic$variable[std_indic$variable == 'Paddy'] <- 'Paddy yield'
 std_indic$variable[std_indic$variable == 'Maize'] <- 'Maize yield'
 std_indic$variable <- factor(std_indic$variable,
-                             levels=c('Amplitude of season',
+                             levels=c('Seasonal growth',
+                                      'Total growth',
+                                      'Amplitude of season',
                                       'May-Oct EVI',
                                       '12 month EVI',
                                       '6 month SPI',
@@ -203,6 +209,38 @@ png('annual_yields_plot_SPI.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*
 print(SPI_annual_yields_plot)
 dev.off()
 
+Sinteg_sum_annual_yields_plot <- ggplot(data=std_indic[std_indic$variable %in% c('Seasonal growth',
+                                                                          'Paddy yield',
+                                                                          'Maize yield'), ],
+                                 aes(Date, value, colour=variable, linetype=variable)) +
+    geom_line() + geom_point(size=3) +
+    guides(colour=guide_legend(title='Legend'),
+           linetype=guide_legend(title='Legend')) +
+    ylab('Standardized value') +  theme(legend.position='bottom') + xlab('Year')
+png('annual_yields_plot_Sinteg_sum.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print(Sinteg_sum_annual_yields_plot)
+dev.off()
+
+Linteg_sum_annual_yields_plot <- ggplot(data=std_indic[std_indic$variable %in% c('Total growth',
+                                                                          'Paddy yield',
+                                                                          'Maize yield'), ],
+                                 aes(Date, value, colour=variable, linetype=variable)) +
+    geom_line() + geom_point(size=3) +
+    guides(colour=guide_legend(title='Legend'),
+           linetype=guide_legend(title='Legend')) +
+    ylab('Standardized value') +  theme(legend.position='bottom') + xlab('Year')
+png('annual_yields_plot_Linteg_sum.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print(Linteg_sum_annual_yields_plot)
+dev.off()
+
+with(merged_yields, cor.test(Sinteg_sum, Maize, use='complete.obs'))
+with(merged_yields, cor.test(Sinteg_sum, Paddy, use='complete.obs'))
+
+with(merged_yields[!(merged_yields$Year %in% c(2003, 2007)), ], cor.test(Sinteg_sum, Paddy, use='complete.obs'))
+
+cor.test(merged_yields$Linteg_sum, merged_yields$Maize, use='complete.obs')
+cor.test(merged_yields$Linteg_sum, merged_yields$Paddy, use='complete.obs')
+
 cor.test(merged_yields$amp, merged_yields$Maize, use='complete.obs')
 cor.test(merged_yields$amp, merged_yields$Paddy, use='complete.obs')
 
@@ -214,17 +252,14 @@ cor.test(merged_yields$EVI_6_Oct, merged_yields$Paddy, use='complete.obs')
 
 library(boot)
 boot_calc_cor <- function(data, k) cor(data[k,], use='complete.obs')[1,2]
-boot_cor_paddy <- boot(data=with(merged_yields, cbind(amp, Paddy)), 
+boot_cor_paddy <- boot(data=with(merged_yields, cbind(Sinteg_sum, Paddy)), 
                        statistic=boot_calc_cor, R=10000)
 boot_cor_paddy
-boot.ci(boot_cor_paddy)
 
-boot_cor_maize <- boot(data=with(merged_yields, cbind(amp, Maize)), 
+boot_cor_maize <- boot(data=with(merged_yields, cbind(Sinteg_sum, Maize)), 
                        statistic=boot_calc_cor, R=10000)
 boot_cor_maize
 boot.ci(boot_cor_maize)
-
-
 
 ccf(EVI_monthly$mean_EVI, EVI_monthly$mean_discharge)
 

@@ -71,6 +71,9 @@ png('precip_95th_above.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_
 print(pct_95_plot)
 dev.off()
 
+ddply(precip, .(Station), summarize, 
+      precip_gt_95=is_extreme(precip, 95, data_subset=(precip > 0), thresholds_only=TRUE))
+
 ###############################################################################
 # Pentad max total precip
 pentad_sum <- ddply(precip, .(Station, Year, Pentad), summarize,
@@ -128,16 +131,17 @@ dev.off()
 # Proportion of annual cumulate due to extreme events (q0.95)
 precip_annual_EP_frac <- ddply(precip, .(Station, Year), summarize, 
                                EP_frac=(sum(precip[precip_gt_95], na.rm=TRUE) / 
-                                        sum(precip)))
+                                        sum(precip, na.rm=TRUE)))
 labeldata <- ddply(precip_annual_EP_frac, .(Station), eqnfunc_slope, 'EP_frac ~ order(Year)')
 labeldata$eqn <- gsub('order[(]Year[)]', 'Year', labeldata$eqn)
 labeldata$eqn <- gsub('EP_frac', 'Fraction', labeldata$eqn)
 EP_frac_plot <- ggplot(precip_annual_EP_frac, aes(Year, EP_frac)) +
     geom_line() + xlab('Date') + facet_grid(Station ~ .) +
-    ylab('Fraction precip. from extreme events') + 
+    ylab('Fraction total from extreme events') + 
     geom_smooth(method="lm", se=TRUE) +
-    geom_text(data=labeldata, aes(x=1970, y=.5, label=eqn), parse=TRUE, 
-              colour='black', hjust=0, size=8) + ylim(c(0,.65))
+    scale_y_continuous(breaks=c(0, .2, .4, .6))
+    #geom_text(data=labeldata, aes(x=1970, y=.5, label=eqn), parse=TRUE, 
+    #          colour='black', hjust=0, size=8) + ylim(c(0,.65))
 png('precip_EP_frac.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(EP_frac_plot)
 dev.off()
@@ -234,25 +238,22 @@ check_neighbors <- function(x, num_neighbors, preceding=FALSE) {
     return(lagged)
 }
 
-pentad_sum <- ddply(precip, .(Station, Year, Pentad), summarize,
-                    sum=sum(precip))
+pentad_mean_daily <- ddply(precip, .(Station, Year, Pentad), summarize,
+                           mean_daily=mean(precip, na.rm=TRUE))
 
-# thresh <- 3
-# low_thresh <- thresh - .5
-# up_thresh <- thresh + .5
-# num_neigh <- 6
-# num_meet <- 4
-thresh <- 3
+thresh <- 2
 low_thresh <- thresh - .25
 up_thresh <- thresh + .25
 num_neigh <- 6
 num_meet <- 4
-onset <- ddply(pentad_sum, .(Station), summarize,
-               Year=Year, Pentad=Pentad, sum=sum, sum_gt_thresh=sum > thresh,
-               preced_lt_low_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh, preceding=TRUE) < low_thresh) >= num_meet),
-               subseq_gt_up_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh) > up_thresh) >= num_meet))
+
+onset <- ddply(pentad_mean_daily, .(Station), summarize,
+               Year=Year, Pentad=Pentad, mean=mean_daily, sum_gt_thresh=mean_daily > thresh,
+               preced_lt_low_thresh=(rowSums(check_neighbors(mean_daily, num_neighbors=num_neigh, preceding=TRUE) < low_thresh) >= num_meet),
+               subseq_gt_up_thresh=(rowSums(check_neighbors(mean_daily, num_neighbors=num_neigh) > up_thresh) >= num_meet))
 onset$onset <- onset$sum_gt_thresh & onset$preced_lt_low_thresh & onset$subseq_gt_up_thresh
 onset_date <- ddply(onset, .(Station, Year), summarize, pentad=match(TRUE, onset))
+onset_date$Date <- as.Date(paste(9999, onset_date$pentad*5), '%Y %j')
 no_onset_years <- onset_date[is.na(onset_date$pentad), ]
 # Don't count years with missing data as years with no onset:
 no_onset_years <- no_onset_years[!(no_onset_years$Station == 'Rampur' &
@@ -275,12 +276,13 @@ print(onset_date_plot)
 dev.off()
 save(onset_date, file='precip_monsoon_onset_date.Rdata')
 
-end <- ddply(pentad_sum, .(Station), summarize,
-             Year=Year, Pentad=Pentad, sum=sum, sum_lt_thresh=sum < thresh,
-             preced_gt_up_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh, preceding=TRUE) > up_thresh) >= num_meet),
-             subseq_lt_low_thresh=(rowSums(check_neighbors(sum, num_neighbors=num_neigh) < low_thresh) >= num_meet))
+end <- ddply(pentad_mean_daily, .(Station), summarize,
+             Year=Year, Pentad=Pentad, sum=mean_daily, sum_lt_thresh=mean_daily < thresh,
+             preced_gt_up_thresh=(rowSums(check_neighbors(mean_daily, num_neighbors=num_neigh, preceding=TRUE) > up_thresh) >= num_meet),
+             subseq_lt_low_thresh=(rowSums(check_neighbors(mean_daily, num_neighbors=num_neigh) < low_thresh) >= num_meet))
 end$end <- end$sum_lt_thresh & end$preced_gt_up_thresh & end$subseq_lt_low_thres & (end$Pentad > 40)
 end_date <- ddply(end, .(Station, Year), summarize, pentad=match(TRUE, end))
+end_date$Date <- as.Date(paste(9999, end_date$pentad*5), '%Y %j')
 no_end_years <- end_date[is.na(end_date$pentad), ]
 # Don't count years with missing data as years with no end:
 no_end_years <- no_end_years[!(no_end_years$Station == 'Rampur' &
@@ -301,6 +303,20 @@ print(end_date_plot)
 dev.off()
 save(end_date_plot, file='precip_monsoon_end_date.Rdata')
 
+start_date_stats <- ddply(onset_date, .(Station), summarize,
+      mean_pentad=mean(pentad, na.rm=TRUE),
+      sd_pentad=sd(pentad, na.rm=TRUE),
+      mean_date=as.Date(paste(9999, 5*mean(pentad, na.rm=TRUE)), '%Y %j'),
+      min_date=as.Date(paste(9999, 5*min(pentad, na.rm=TRUE)), '%Y %j'),
+      max_date=as.Date(paste(9999, 5*max(pentad, na.rm=TRUE)), '%Y %j'))
+
+end_date_stats <- ddply(end_date, .(Station), summarize,
+      mean_pentad=mean(pentad, na.rm=TRUE),
+      sd_pentad=sd(pentad, na.rm=TRUE),
+      mean_date=as.Date(paste(9999, 5*mean(pentad, na.rm=TRUE)), '%Y %j'),
+      min_date=as.Date(paste(9999, 5*min(pentad, na.rm=TRUE)), '%Y %j'),
+      max_date=as.Date(paste(9999, 5*max(pentad, na.rm=TRUE)), '%Y %j'))
+
 ###############################################################################
 # Faceted monsoon_date melt plot with onset/end
 end_date$Type <- 'End'
@@ -310,10 +326,9 @@ monsoon_date_melt$Type <- factor(monsoon_date_melt$Type, levels=c('Onset', 'End'
 if (nrow(no_end_years) > 0) {no_end_years$Type <- 'End'}
 if (nrow(no_onset_years) > 0) {no_onset_years$Type <- 'Onset'}
 no_end_onset_years <- rbind(no_onset_years, no_end_years)
-monsoon_date_melt_plot <- ggplot(monsoon_date_melt, aes(Year, pentad)) +
-    geom_line() + xlab('Time') +
+monsoon_date_melt_plot <- ggplot(monsoon_date_melt, aes(Year, Date)) +
+    geom_line() + xlab('Year') + ylab('') +
     facet_grid(Type ~ Station, scales='free_y', space='free_y') +
-    ylab('Pentad') +
     theme(legend.position='none') +
     geom_smooth(method="lm", se=TRUE) +
     geom_vline(data=no_end_onset_years, aes(xintercept=Year), color='black', size=.5, linetype=2)
@@ -321,14 +336,26 @@ png('precip_monsoon_onset_end_meltplot.png', width=PLOT_WIDTH*PLOT_DPI*2, height
 print(monsoon_date_melt_plot)
 dev.off()
 
+###############################################################################
+# Faceted monsoon_date melt plot with onset/end - 2000-2010 only
+monsoon_date_melt_plot <- ggplot(monsoon_date_melt[monsoon_date_melt$Year >=2000, ], aes(Year, Date)) +
+    geom_line() + xlab('Year') + ylab('') +
+    facet_grid(Type ~ Station, scales='free_y', space='free_y') +
+    theme(legend.position='none') +
+    geom_smooth(method="lm", se=TRUE) +
+    geom_vline(data=no_end_onset_years[no_end_onset_years$Year >=2000, ], aes(xintercept=Year), color='black', size=.5, linetype=2)
+png('precip_monsoon_onset_end_meltplot_2000-2010.png', width=PLOT_WIDTH*PLOT_DPI*2, height=PLOT_HEIGHT*PLOT_DPI)
+print(monsoon_date_melt_plot)
+dev.off()
+
 # Try start and end dates on the mean series from the three stations
-stn_sums <- ddply(precip, .(Station, Year, Pentad), summarize,
-                  stn_sum=sum(precip, na.rm=TRUE))
-stn_mean_onset <- ddply(stn_sums, .(Year, Pentad), summarize,
-                         mean_sum=mean(stn_sum, na.rm=TRUE))
-stn_mean_onset$sum_gt_thresh <- stn_mean_onset$mean_sum > thresh
-stn_mean_onset$preced_lt_low_thresh <- rowSums(check_neighbors(stn_mean_onset$mean_sum, num_neighbors=num_neigh, preceding=TRUE) < low_thresh) >= num_meet
-stn_mean_onset$subseq_gt_up_thresh <- rowSums(check_neighbors(stn_mean_onset$mean_sum, num_neighbors=num_neigh) > up_thresh) >= num_meet
+stn_means <- ddply(precip, .(Station, Year, Pentad), summarize,
+                  stn_mean=mean(precip, na.rm=TRUE))
+stn_mean_onset <- ddply(stn_means, .(Year, Pentad), summarize,
+                         mean_daily=mean(stn_mean, na.rm=TRUE))
+stn_mean_onset$sum_gt_thresh <- stn_mean_onset$mean_daily > thresh
+stn_mean_onset$preced_lt_low_thresh <- rowSums(check_neighbors(stn_mean_onset$mean_daily, num_neighbors=num_neigh, preceding=TRUE) < low_thresh) >= num_meet
+stn_mean_onset$subseq_gt_up_thresh <- rowSums(check_neighbors(stn_mean_onset$mean_daily, num_neighbors=num_neigh) > up_thresh) >= num_meet
 stn_mean_onset$onset <- stn_mean_onset$sum_gt_thresh & stn_mean_onset$preced_lt_low_thresh & stn_mean_onset$subseq_gt_up_thresh
 stn_mean_onset_date <- ddply(stn_mean_onset, .(Year), summarize, pentad=match(TRUE, onset))
 table(is.na(stn_mean_onset_date$pentad))
@@ -343,14 +370,13 @@ png('precip_monsoon_onset_date_station_mean.png', width=PLOT_WIDTH*PLOT_DPI, hei
 print(stn_mean_onset_date_plot)
 dev.off()
 
-stn_mean_end <- ddply(stn_sums, .(Year, Pentad), summarize,
-                         mean_sum=mean(stn_sum, na.rm=TRUE))
-stn_mean_end$sum_lt_thresh <- stn_mean_end$mean_sum < thresh
-stn_mean_end$preced_gt_up_thresh <- rowSums(check_neighbors(stn_mean_end$mean_sum, num_neighbors=num_neigh, preceding=TRUE) > up_thresh) >= num_meet
-stn_mean_end$subseq_lt_low_thresh <- rowSums(check_neighbors(stn_mean_end$mean_sum, num_neighbors=num_neigh) < low_thresh) >= num_meet
+stn_mean_end <- ddply(stn_means, .(Year, Pentad), summarize,
+                         mean_daily=mean(stn_mean, na.rm=TRUE))
+stn_mean_end$sum_lt_thresh <- stn_mean_end$mean_daily < thresh
+stn_mean_end$preced_gt_up_thresh <- rowSums(check_neighbors(stn_mean_end$mean_daily, num_neighbors=num_neigh, preceding=TRUE) > up_thresh) >= num_meet
+stn_mean_end$subseq_lt_low_thresh <- rowSums(check_neighbors(stn_mean_end$mean_daily, num_neighbors=num_neigh) < low_thresh) >= num_meet
 stn_mean_end$end <- stn_mean_end$sum_lt_thresh & stn_mean_end$preced_gt_up_thresh & stn_mean_end$subseq_lt_low_thresh
 stn_mean_end$end[stn_mean_end$end & stn_mean_end$Pentad < 40] <- NA
-end_date <- ddply(end, .(Station, Year), summarize, pentad=match(TRUE, end))
 stn_mean_end_date <- ddply(stn_mean_end, .(Year), summarize, pentad=match(TRUE, end))
 table(is.na(stn_mean_end_date$pentad))
 labeldata <- eqnfunc_slope(stn_mean_end_date, 'pentad ~ order(Year)')
@@ -367,14 +393,23 @@ dev.off()
 
 ###############################################################################
 # Save multi_plots
+
 grid_cols <- 2
 grid_rows <- 1
-
 png('precip_extrema_plot.png', width=PLOT_WIDTH*PLOT_DPI*grid_cols, 
     height=PLOT_HEIGHT*PLOT_DPI*grid_rows)
 grid.arrange(rainy_days_plot, pct_95_plot, ncol=grid_cols)
 dev.off()
 
+grid_cols <- 2
+grid_rows <- 1
+png('precip_extrema_plot_2.png', width=PLOT_WIDTH*PLOT_DPI*grid_cols, 
+    height=PLOT_HEIGHT*PLOT_DPI*grid_rows)
+grid.arrange(pct_95_plot, EP_frac_plot, ncol=grid_cols)
+dev.off()
+
+grid_cols <- 2
+grid_rows <- 1
 png('precip_monsoon_onset_end.png', width=PLOT_WIDTH*PLOT_DPI*grid_cols, 
     height=PLOT_HEIGHT*PLOT_DPI*grid_rows)
 grid.arrange(onset_date_plot, end_date_plot, ncol=grid_cols)
