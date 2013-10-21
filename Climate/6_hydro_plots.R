@@ -308,43 +308,43 @@ dev.off()
 #  set to 10000), so it is commented out.
 #
 # Bootstrap confidence intervals for difference of means between periods
-# boot_mean_diff_conf <- function(comp_data, base_data, iterations=2000) {
-#     base_period <- unique(base_data$Period)
-#     if (length(base_period) > 1) {stop('base data contains more than one period')}
-#     comp_period <- unique(comp_data$Period)
-#     if (length(comp_period) > 1) {stop('comparison data contains more than one period')}
-#     comp_month <- unique(comp_data$Month)
-#     if (length(comp_month) > 1) {stop('comparison data contains more than one month')}
-#     q_data <- rbind(base_data[base_data$Month == comp_month, ], comp_data)
-#     meanDiffPct <- function(dataFrame, indexVector, base_period, comp_period) { 
-#         m1 <- mean(subset(dataFrame[indexVector, ]$q, dataFrame[indexVector, ]$Period == base_period), na.rm=TRUE)
-#         m2 <- mean(subset(dataFrame[indexVector, ]$q, dataFrame[indexVector, ]$Period == comp_period), na.rm=TRUE)
-#         m <- (m2 - m1) / m1
-#         return(m)
-#     }
-#     q_data_boot <- boot(q_data, meanDiffPct, R=iterations, strata=q_data$Period, 
-#                         base_period=base_period, comp_period=comp_period)
-#     q_data_boot_CI <- boot.ci(q_data_boot, type='perc')
-#     return(data.frame(diff_pct=q_data_boot_CI$t0, lcl=q_data_boot_CI$percent[4], ucl=q_data_boot_CI$percent[5]))
-# }
-# monthly_q_base <- monthly_q[monthly_q$Period == base_period, ]
-# boot_mean_diff_conf(monthly_q[monthly_q$Period == '(1978,1993]' & monthly_q$Month == 1, ], monthly_q_base)
-# bootstrap_ints <- ddply(monthly_q, .(Period, Month), boot_mean_diff_conf, monthly_q_base, iterations=10000)
-# bootstrap_ints$Month_Date <- as.Date(paste(9999, bootstrap_ints$Month, '1'), format='%Y %m %d')
-# 
-# monthly_discharge_plot_bootstrap <- ggplot(bootstrap_ints[bootstrap_ints$Period != base_period, ]) +
-#     geom_bar(aes(x=Month_Date, y=diff_pct, fill=Period), stat='identity', position="dodge") +
-#     xlab('Month') + 
-#     ylab('Deviation from 1963-1978 mean') +
-#     geom_errorbar(aes(x=Month_Date, ymin=lcl, 
-#                       ymax=ucl, fill=Period), alpha=.2, position="dodge") +
-#     scale_x_date(labels=date_format("%b")) +
-#     scale_y_continuous(labels=percent) +
-#     scale_fill_discrete(guide=guide_legend(breaks=c('(1977-1993]', '(1993-2008]')),
-#                                            labels=c('1978-1993', '1994-2008'))
-# png('discharge_AQ450_monthly_pct_anom_bootstrap.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
-# print(monthly_discharge_plot_bootstrap)
-# dev.off()
+boot_mean_diff_conf <- function(comp_data, base_data, iterations=2000) {
+    base_period <- unique(base_data$Period)
+    if (length(base_period) > 1) {stop('base data contains more than one period')}
+    comp_period <- unique(comp_data$Period)
+    if (length(comp_period) > 1) {stop('comparison data contains more than one period')}
+    comp_month <- unique(comp_data$Month)
+    if (length(comp_month) > 1) {stop('comparison data contains more than one month')}
+    q_data <- rbind(base_data[base_data$Month == comp_month, ], comp_data)
+    meanDiffPct <- function(dataFrame, indexVector, base_period, comp_period) { 
+        m1 <- mean(subset(dataFrame[indexVector, ]$q, dataFrame[indexVector, ]$Period == base_period), na.rm=TRUE)
+        m2 <- mean(subset(dataFrame[indexVector, ]$q, dataFrame[indexVector, ]$Period == comp_period), na.rm=TRUE)
+        m <- (m2 - m1) / m1
+        return(m)
+    }
+    q_data_boot <- boot(q_data, meanDiffPct, R=iterations, strata=q_data$Period, 
+                        base_period=base_period, comp_period=comp_period)
+    q_data_boot_CI <- boot.ci(q_data_boot, type='perc')
+    return(data.frame(diff_pct=q_data_boot_CI$t0, lcl=q_data_boot_CI$percent[4], ucl=q_data_boot_CI$percent[5]))
+}
+monthly_q_base <- monthly_q[monthly_q$Period == base_period, ]
+boot_mean_diff_conf(monthly_q[monthly_q$Period == '(1978,1993]' & monthly_q$Month == 1, ], monthly_q_base)
+bootstrap_ints <- ddply(monthly_q, .(Period, Month), boot_mean_diff_conf, monthly_q_base, iterations=10000)
+bootstrap_ints$Month_Date <- as.Date(paste(9999, bootstrap_ints$Month, '1'), format='%Y %m %d')
+
+monthly_discharge_plot_bootstrap <- ggplot(bootstrap_ints[bootstrap_ints$Period != base_period, ]) +
+    geom_bar(aes(x=Month_Date, y=diff_pct, fill=Period), stat='identity', position="dodge") +
+    xlab('Month') + 
+    ylab('Deviation from 1963-1978 mean') +
+    geom_errorbar(aes(x=Month_Date, ymin=lcl, 
+                      ymax=ucl, fill=Period), alpha=.2, position="dodge", size=2) +
+    scale_x_date(labels=date_format("%b")) +
+    scale_y_continuous(labels=percent) +
+    scale_fill_discrete(guide=guide_legend(breaks=c('(1977-1993]', '(1993-2008]')),
+                                           labels=c('1978-1993', '1994-2008'))
+png('discharge_AQ450_monthly_pct_anom_bootstrap.png', width=PLOT_WIDTH*PLOT_DPI*2, height=PLOT_HEIGHT*PLOT_DPI)
+print(monthly_discharge_plot_bootstrap)
+dev.off()
 
 ###############################################################################
 # Monthly discharge anomaly

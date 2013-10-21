@@ -118,7 +118,6 @@ seasonal_diurnal_plot <- ggplot(seasonal_stats, aes(season_start_year,
                                                     colour=Season, 
                                                     linetype=Season)) +
     geom_line() + xlab('Time') +
-    
     geom_smooth(method="lm", se=TRUE)
 png('temp_seasonal_diurnal.png', width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
 print(seasonal_diurnal_plot)
@@ -135,7 +134,7 @@ seasonal_melt$variable[seasonal_melt$variable == 'mean_maxt'] <- 'Mean maximum'
 x_breaks <- seq(1980, 2010, 15)
 seasonal_melt_plot <- ggplot(seasonal_melt, aes(season_start_year, value, 
                                                 colour=variable)) +
-    geom_line() + xlab('Time') +
+    geom_line(size=2) + xlab('Time') +
     facet_grid(variable ~ Season, scales='free_y', space='free_y') +
     ylab(expression(paste("Temperature (", degree, C, ')', sep=''))) +
     theme(legend.position='none') +

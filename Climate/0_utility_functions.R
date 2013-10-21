@@ -1,7 +1,12 @@
 library(ggplot2)
 
-theme_set(theme_grey(base_size=40))
-theme_set(theme_bw(base_size=40))
+# Uncomment the below two lines for ppt-sized plots
+theme_set(theme_grey(base_size=80))
+theme_set(theme_bw(base_size=80))
+# Uncomment the below two lines for publication-sized plots
+#theme_set(theme_grey(base_size=40))
+#theme_set(theme_bw(base_size=40))
+
 #theme_update(panel.grid.major=element_blank(), panel.grid.minor=element_blank())
 update_geom_defaults("smooth", aes(size=1))
 update_geom_defaults("line", aes(size=.5))
@@ -15,8 +20,12 @@ low_mar = 1.25
 # How much space to leave for a caption (in inches) on a full page 2 col x 3 
 # row multiplot?
 caption_space <- 1
-PLOT_WIDTH = (8.5 - left_mar - right_mar) / 2
-PLOT_HEIGHT = (11 - up_mar - low_mar - caption_space) / 3
+# Uncomment the below two lines for publication-sized plots
+#PLOT_WIDTH = (8.5 - left_mar - right_mar) / 2
+#PLOT_HEIGHT = (11 - up_mar - low_mar - caption_space) / 3
+# Uncomment the below two lines for ppt-sized plots
+PLOT_WIDTH = 4.75
+PLOT_HEIGHT = 5.5
 PLOT_DPI = 300
 
 format_p <- function(p_val) {

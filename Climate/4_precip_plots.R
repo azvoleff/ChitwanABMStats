@@ -36,7 +36,7 @@ print(ann_plot)
 dev.off()
 
 ###############################################################################
-# 3 year rolling mean annual precip
+# 5 year rolling mean annual precip
 filter_years <- 5
 filter_size <- 365*filter_years
 ann_roll_mean <- ddply(precip, .(Station), summarize,
@@ -49,6 +49,20 @@ ann_roll_mean_plot <- ggplot(ann_roll_mean, aes(Date, mean)) +
                   ymin=1000, ymax=3000), alpha=.005, color='black') +
     geom_text(aes(x=as.Date("2001/08/15"), y=1100, label="CVFS"))
 png(paste('precip_annual_', filter_years, 'yr_mean.png', sep=''), width=PLOT_WIDTH*PLOT_DPI, height=PLOT_HEIGHT*PLOT_DPI)
+print(ann_roll_mean_plot)
+dev.off()
+
+###############################################################################
+# 1 year rolling mean annual precip
+filter_years <- 1
+filter_size <- 365*filter_years
+ann_roll_mean <- ddply(precip, .(Station), summarize,
+                      Date=Date, Year=Year, Month=Month, Day=Day,
+                      mean=filter(as.matrix(precip), rep(1/filter_size, filter_size))*365)
+ann_roll_mean_plot <- ggplot(ann_roll_mean, aes(Date, mean)) +
+    facet_grid(Station ~ .) + geom_line() + xlab('Date') +
+    ylab(paste(filter_years, '-year average precip. (mm/year)', sep='')) +
+png(paste('precip_annual_', filter_years, 'yr_mean.png', sep=''), width=PLOT_WIDTH*PLOT_DPI*2, height=PLOT_HEIGHT*PLOT_DPI)
 print(ann_roll_mean_plot)
 dev.off()
 

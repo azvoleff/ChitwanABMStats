@@ -3,6 +3,7 @@ library(raster)
 library(rgdal)
 
 aster <- raster('R:/Data/Nepal/GIS/DEM/ASTERv2_N27E084/ASTGTM2_N27E084_dem.tif')
+srtm <- raster('R:/Data/Nepal/GIS/DEM/srtm_53_07/srtm_53_07.tif')
 cvfs_nbhs <- readOGR('R:/Data/Nepal/GIS/CVFS_Data', 'cvfs_aster_elev_rivers')
 orig_projection <- projection(cvfs_nbhs)
 cvfs_nbhs$NEIGHID <- sprintf("%03i", cvfs_nbhs$NID)
@@ -16,6 +17,16 @@ rapti_near_pts <- spTransform(rapti_near_pts, CRS=CRS(projection(aster)))
 narayani_near_pts <- SpatialPoints(cbind(cvfs_nbhs$NARAYANI_X, cvfs_nbhs$NARAYANI_Y), 
                                 proj4string=CRS(orig_projection))
 narayani_near_pts <- spTransform(narayani_near_pts, CRS=CRS(projection(aster)))
+
+# plot(aster)
+# points(cvfs_nbhs)
+# mean(nbh_aster_elevs)
+# nbh_aster_elevs <- extract(aster, cvfs_nbhs)
+
+# plot(srtm)
+# points(cvfs_nbhs)
+# nbh_srtm_elevs <- extract(srtm, cvfs_nbhs)
+# mean(nbh_srtm_elevs)
 
 RAPTI_EV <- extract(aster, rapti_near_pts)
 cvfs_nbhs <- spCbind(cvfs_nbhs, RAPTI_EV)

@@ -140,7 +140,7 @@ dev.off()
 # Plot correlation with annual yields
 ###############################################################################
 # Load the Chitwan annual yield data and merge it with the MODIS indicators
-chitwan_yields <- read.csv('R:/Data/Nepal/Nepal_Census/Chitwan_Annual_AgProduction_From_Yearbooks.csv', skip=1)
+chitwan_yields <- read.csv('M:/Data/Nepal/Nepal_Census/Chitwan_Annual_AgProduction_From_Yearbooks.csv', skip=1)
 EVI_annual <- ddply(EVI_monthly, .(Year), summarize,
                     SPI_12_Oct=SPI_6[10],
                     SPI_6_Oct=SPI_6[10],
@@ -236,6 +236,9 @@ dev.off()
 with(merged_yields, cor.test(Sinteg_sum, Maize, use='complete.obs'))
 with(merged_yields, cor.test(Sinteg_sum, Paddy, use='complete.obs'))
 
+summary(lm(Maize ~ Sinteg_sum, data=merged_yields))
+summary(lm(Paddy ~ Sinteg_sum, data=merged_yields))
+
 with(merged_yields[!(merged_yields$Year %in% c(2003, 2007)), ], cor.test(Sinteg_sum, Paddy, use='complete.obs'))
 
 cor.test(merged_yields$Linteg_sum, merged_yields$Maize, use='complete.obs')
@@ -255,6 +258,7 @@ boot_calc_cor <- function(data, k) cor(data[k,], use='complete.obs')[1,2]
 boot_cor_paddy <- boot(data=with(merged_yields, cbind(Sinteg_sum, Paddy)), 
                        statistic=boot_calc_cor, R=10000)
 boot_cor_paddy
+boot.ci(boot_cor_paddy)
 
 boot_cor_maize <- boot(data=with(merged_yields, cbind(Sinteg_sum, Maize)), 
                        statistic=boot_calc_cor, R=10000)
@@ -301,10 +305,10 @@ period_discharge$Date <- as.Date(paste(period_discharge$Year, period_discharge$s
 period_discharge <- period_discharge[period_discharge$Date %in% EVI_dates, ]
 
 # Load EVI data
-tts_file_name <- 'R:/Data/Nepal/Imagery/MODIS/MOD13Q1_Chitwan_Cropped/Chitwan_MOD13Q1_EVI_Full_Series_Cropped_Expanded_fit.tts'
+tts_file_name <- 'M:/Data/Nepal/Imagery/MODIS/MOD13Q1_Chitwan_Cropped/Chitwan_MOD13Q1_EVI_Full_Series_Cropped_Expanded_fit.tts'
 tts_df <- tts2df(tts_file_name)
-base_image_file <- 'R:/Data/Nepal/Imagery/MODIS/MOD13Q1_Chitwan_Cropped/2000001_MOD13Q1_EVI_scaled_flt16.envi'
-CVFS_area_mask <- raster('R:/Data/Nepal/Imagery/MODIS/AOIs/CVFS_Study_Area_mask_float.img')
+base_image_file <- 'M:/Data/Nepal/Imagery/MODIS/MOD13Q1_Chitwan_Cropped/2000001_MOD13Q1_EVI_scaled_flt16.envi'
+CVFS_area_mask <- raster('M:/Data/Nepal/Imagery/MODIS/AOIs/CVFS_Study_Area_mask_float.img')
 ttsraster <- ttsdf2raster(tts_df, base_image_file)
 #ttsraster <- setValues(ttsraster, getValues(ttsraster) * 
 #                       getValues(CVFS_area_mask))
@@ -322,7 +326,7 @@ ttsraster_rollmean <- ttsdf2raster(tts_df_24mth_rollmean, base_image_file)
 # First make simple correlation maps
 
 # Load CVFS area polygon so it can be shown on the image
-cvfs_area <- readOGR(dsn="R:/Data/Nepal/GIS/ChitwanDistrict", layer="CVFS_Study_Area")
+cvfs_area <- readOGR(dsn="M:/Data/Nepal/GIS/ChitwanDistrict", layer="CVFS_Study_Area")
 # Need to transform CVFS polygon to WGS84 since it is in UTM
 cvfs_area  <- spTransform(cvfs_area, CRS("+init=epsg:4326"))
 cvfs_area@data$id <- rownames(cvfs_area@data)
